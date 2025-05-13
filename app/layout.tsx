@@ -3,8 +3,16 @@ import "@/app/globals.css"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/context/cart-context"
+import { AuthProvider } from "@/context/auth-context"
+import { EnvStatus } from "@/components/env-status"
 
 const inter = Inter({ subsets: ["latin"] })
+
+export const metadata = {
+  title: "LORI - Fashion Store",
+  description: "Premium fashion and clothing store",
+    generator: 'v0.dev'
+}
 
 export default function RootLayout({
   children,
@@ -15,13 +23,14 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <CartProvider>{children}</CartProvider>
+          <AuthProvider>
+            <CartProvider>
+              {children}
+              <EnvStatus />
+            </CartProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
   )
 }
-
-export const metadata = {
-      generator: 'v0.dev'
-    };

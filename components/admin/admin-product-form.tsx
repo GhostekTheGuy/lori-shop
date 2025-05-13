@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Upload, X, Plus } from "lucide-react"
+import { Upload, X, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createProduct, updateProduct } from "@/actions/product-actions"
+import { uploadProductImage } from "@/lib/file-upload"
 
 interface ProductFormProps {
   product?: any // In a real app, you would define a proper type
@@ -20,22 +23,30 @@ interface ProductFormProps {
 
 export function AdminProductForm({ product }: ProductFormProps) {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const isEditing = !!product
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
+    id: product?.id || "",
     name: product?.name || "",
     description: product?.description || "",
-    price: product?.originalPrice?.replace(/[^\d.-]/g, "") || "",
-    salePrice: product?.salePrice?.replace(/[^\d.-]/g, "") || "",
-    sku: product?.id || "",
+    price: product?.price?.toString() || "",
+    salePrice: product?.sale_price?.toString() || "",
+    sku: product?.sku || "",
     category: product?.category || "",
-    stockStatus: product?.stockStatus || "in-stock",
-    stockQuantity: product?.stockQuantity || "",
-    images: product?.image ? [product.image] : [],
-    tags: product?.tag ? [product.tag] : [],
-    featured: false,
-    published: true,
+    stockStatus: product?.stock_status || "in-stock",
+    stockQuantity: product?.stock_quantity?.toString() || "",
+    images: product?.images || [],
+    tags: product?.tags || [],
+    featured: product?.featured || false,
+    published: product?.published || true,
+    sizes: product?.sizes || [],
+    colors: product?.colors || [],
   })
 
   // Handle form input changes
@@ -54,18 +65,55 @@ export function AdminProductForm({ product }: ProductFormProps) {
     setFormData((prev) => ({ ...prev, [name]: checked }))
   }
 
+  // Handle size checkbox changes
+  const handleSizeChange = (size: string, checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      sizes: checked ? [...prev.sizes, size] : prev.sizes.filter((s) => s !== size),
+    }))
+  }
+
+  // Handle color checkbox changes
+  const handleColorChange = (color: string, checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      colors: checked ? [...prev.colors, color] : prev.colors.filter((c) => c !== color),
+    }))
+  }
+
   // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // In a real app, you would handle file uploads to your server or cloud storage
-    // For this demo, we'll just use placeholder images
-    if (e.target.files && e.target.files.length > 0) {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return
+
+    setIsUploading(true)
+    setError(null)
+
+    try {
       const newImages = [...formData.images]
+
       for (let i = 0; i < e.target.files.length; i++) {
-        // In a real app, you would upload the file and get a URL
-        // Here we're just using a placeholder
-        newImages.push("/images/product-1.png")
+        const file = e.target.files[i]
+
+        // Upload the file
+        const result = await uploadProductImage(file)
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to upload image")
+        }
+
+        newImages.push(result.url)
       }
+
       setFormData((prev) => ({ ...prev, images: newImages }))
+    } catch (err) {
+      console.error("Error uploading images:", err)
+      setError("Failed to upload images. Please try again.")
+    } finally {
+      setIsUploading(false)
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
   }
 
@@ -79,7 +127,7 @@ export function AdminProductForm({ product }: ProductFormProps) {
   // Add tag
   const [newTag, setNewTag] = useState("")
   const addTag = () => {
-    if (newTag.trim()) {
+    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
       setFormData((prev) => ({ ...prev, tags: [...prev.tags, newTag.trim()] }))
       setNewTag("")
     }
@@ -93,17 +141,56 @@ export function AdminProductForm({ product }: ProductFormProps) {
   }
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, you would send the form data to your API
-    console.log("Form submitted:", formData)
+    setIsSubmitting(true)
+    setError(null)
+    setSuccess(null)
 
-    // Redirect to products page after submission
-    router.push("/admin/products")
+    try {
+      // Prepare the data for submission
+      const productData = {
+        ...formData,
+        price: Number.parseFloat(formData.price),
+        salePrice: formData.salePrice ? Number.parseFloat(formData.salePrice) : null,
+        stockQuantity: formData.stockQuantity ? Number.parseInt(formData.stockQuantity) : null,
+      }
+
+      // Create or update the product
+      const result = isEditing ? await updateProduct(productData) : await createProduct(productData)
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to save product")
+      }
+
+      setSuccess(`Product successfully ${isEditing ? "updated" : "created"}!`)
+
+      // Redirect to products page after a short delay
+      setTimeout(() => {
+        router.push("/admin/products")
+      }, 1500)
+    } catch (err) {
+      console.error("Error saving product:", err)
+      setError("Failed to save product. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="bg-green-50 border-green-200 text-green-800">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+
       <Tabs defaultValue="basic" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="basic">Basic Information</TabsTrigger>
@@ -256,9 +343,23 @@ export function AdminProductForm({ product }: ProductFormProps) {
                 </div>
               ))}
               <label className="aspect-square bg-gray-100 rounded-md border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
-                <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">Upload Image</span>
-                <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                {isUploading ? (
+                  <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">Upload Image</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  ref={fileInputRef}
+                  disabled={isUploading}
+                />
               </label>
             </div>
             <p className="text-sm text-gray-500">
@@ -334,7 +435,11 @@ export function AdminProductForm({ product }: ProductFormProps) {
               <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                 {["XS", "S", "M", "L", "XL", "XXL"].map((size) => (
                   <div key={size} className="flex items-center space-x-2">
-                    <Checkbox id={`size-${size}`} />
+                    <Checkbox
+                      id={`size-${size}`}
+                      checked={formData.sizes.includes(size)}
+                      onCheckedChange={(checked) => handleSizeChange(size, checked as boolean)}
+                    />
                     <Label htmlFor={`size-${size}`} className="cursor-pointer">
                       {size}
                     </Label>
@@ -348,25 +453,16 @@ export function AdminProductForm({ product }: ProductFormProps) {
               <div className="flex flex-wrap gap-3">
                 {["Black", "White", "Gray", "Red", "Blue", "Green"].map((color) => (
                   <div key={color} className="flex items-center space-x-2">
-                    <Checkbox id={`color-${color}`} />
+                    <Checkbox
+                      id={`color-${color}`}
+                      checked={formData.colors.includes(color)}
+                      onCheckedChange={(checked) => handleColorChange(color, checked as boolean)}
+                    />
                     <Label htmlFor={`color-${color}`} className="cursor-pointer">
                       {color}
                     </Label>
                   </div>
                 ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Related Products</Label>
-              <div className="border border-gray-200 rounded-md p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm text-gray-500">Select related products to display</p>
-                  <Button type="button" variant="outline" size="sm" className="h-8">
-                    <Plus className="h-4 w-4 mr-1" /> Add Product
-                  </Button>
-                </div>
-                <p className="text-sm text-gray-500 text-center py-4">No related products selected</p>
               </div>
             </div>
           </div>
@@ -377,8 +473,17 @@ export function AdminProductForm({ product }: ProductFormProps) {
         <Button type="button" variant="outline" onClick={() => router.push("/admin/products")}>
           Cancel
         </Button>
-        <Button type="submit" className="bg-black hover:bg-gray-800">
-          {isEditing ? "Update Product" : "Create Product"}
+        <Button type="submit" className="bg-black hover:bg-gray-800" disabled={isSubmitting || isUploading}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {isEditing ? "Updating..." : "Creating..."}
+            </>
+          ) : isEditing ? (
+            "Update Product"
+          ) : (
+            "Create Product"
+          )}
         </Button>
       </div>
     </form>
