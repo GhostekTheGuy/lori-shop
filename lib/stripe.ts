@@ -3,11 +3,28 @@ import Stripe from "stripe"
 
 // Load Stripe on the client side
 export const getStripe = async () => {
-  const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string
+  const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  if (!stripePublishableKey) {
+    console.error("Missing Stripe publishable key")
+    return null
+  }
   return await loadStripe(stripePublishableKey)
 }
 
 // Initialize Stripe on the server side
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2023-10-16",
-})
+let stripeInstance: Stripe | null = null
+
+export const getStripeInstance = () => {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+
+  if (!stripeInstance && stripeSecretKey) {
+    stripeInstance = new Stripe(stripeSecretKey, {
+      apiVersion: "2023-10-16",
+    })
+  }
+
+  return stripeInstance
+}
+
+// For backward compatibility
+export const stripe = getStripeInstance()

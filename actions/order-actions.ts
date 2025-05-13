@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getSupabase } from "@/lib/supabase"
-import { stripe } from "@/lib/stripe"
+import { getStripeInstance } from "@/lib/stripe"
 import { v4 as uuidv4 } from "uuid"
 import type { CartItem } from "@/context/cart-context"
 
@@ -32,61 +32,72 @@ export async function createOrder(orderData: OrderData) {
   // Generate a unique order ID
   const orderId = uuidv4()
 
-  // Create a payment intent with Stripe
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(orderData.total * 100), // Stripe uses cents
-    currency: "pln",
-    metadata: {
+  // Get Stripe instance
+  const stripe = getStripeInstance()
+  if (!stripe) {
+    return { success: false, error: "Stripe client not initialized" }
+  }
+
+  try {
+    // Create a payment intent with Stripe
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(orderData.total * 100), // Stripe uses cents
+      currency: "pln",
+      metadata: {
+        orderId,
+        userId: orderData.userId,
+      },
+    })
+
+    // Insert the order into the database
+    const { error: orderError } = await supabase.from("orders").insert({
+      id: orderId,
+      user_id: orderData.userId,
+      status: "pending",
+      total: orderData.total,
+      shipping_address: {
+        first_name: orderData.shippingAddress.firstName,
+        last_name: orderData.shippingAddress.lastName,
+        address: orderData.shippingAddress.address,
+        city: orderData.shippingAddress.city,
+        postal_code: orderData.shippingAddress.postalCode,
+        country: orderData.shippingAddress.country,
+        phone: orderData.shippingAddress.phone,
+      },
+      payment_intent: paymentIntent.id,
+      payment_status: "pending",
+    })
+
+    if (orderError) {
+      console.error("Error creating order:", orderError)
+      return { success: false, error: orderError.message }
+    }
+
+    // Insert order items
+    const orderItems = orderData.items.map((item) => ({
+      order_id: orderId,
+      product_id: item.id,
+      quantity: item.quantity,
+      price: item.price,
+      size: item.size || null,
+      color: item.color || null,
+    }))
+
+    const { error: itemsError } = await supabase.from("order_items").insert(orderItems)
+
+    if (itemsError) {
+      console.error("Error creating order items:", itemsError)
+      return { success: false, error: itemsError.message }
+    }
+
+    return {
+      success: true,
       orderId,
-      userId: orderData.userId,
-    },
-  })
-
-  // Insert the order into the database
-  const { error: orderError } = await supabase.from("orders").insert({
-    id: orderId,
-    user_id: orderData.userId,
-    status: "pending",
-    total: orderData.total,
-    shipping_address: {
-      first_name: orderData.shippingAddress.firstName,
-      last_name: orderData.shippingAddress.lastName,
-      address: orderData.shippingAddress.address,
-      city: orderData.shippingAddress.city,
-      postal_code: orderData.shippingAddress.postalCode,
-      country: orderData.shippingAddress.country,
-      phone: orderData.shippingAddress.phone,
-    },
-    payment_intent: paymentIntent.id,
-    payment_status: "pending",
-  })
-
-  if (orderError) {
-    console.error("Error creating order:", orderError)
-    return { success: false, error: orderError.message }
-  }
-
-  // Insert order items
-  const orderItems = orderData.items.map((item) => ({
-    order_id: orderId,
-    product_id: item.id,
-    quantity: item.quantity,
-    price: item.price,
-    size: item.size || null,
-    color: item.color || null,
-  }))
-
-  const { error: itemsError } = await supabase.from("order_items").insert(orderItems)
-
-  if (itemsError) {
-    console.error("Error creating order items:", itemsError)
-    return { success: false, error: itemsError.message }
-  }
-
-  return {
-    success: true,
-    orderId,
-    clientSecret: paymentIntent.client_secret,
+      clientSecret: paymentIntent.client_secret,
+    }
+  } catch (error: any) {
+    console.error("Error in createOrder:", error)
+    return { success: false, error: error.message || "Failed to create order" }
   }
 }
 
