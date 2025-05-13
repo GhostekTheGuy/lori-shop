@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Instagram, Facebook, User, Search, ShoppingBag } from "lucide-react"
+import { Instagram, Facebook, User, Search, ShoppingBag, Settings } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useCart } from "@/context/cart-context"
 import { SearchDialog } from "@/components/search-dialog"
@@ -241,6 +241,12 @@ export function Navbar() {
                 className={`hidden md:block transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
               >
                 <Facebook size={20} />
+              </Link>
+              <Link
+                href="/admin"
+                className={`transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
+              >
+                <Settings size={20} />
               </Link>
               <Link
                 href="/account"
