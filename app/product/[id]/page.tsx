@@ -1,0 +1,302 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Navbar } from "@/components/navbar"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CreditCard, ShoppingBag, HelpCircle, Instagram, Facebook, ArrowRight, ChevronDown } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import Image from "next/image"
+import Link from "next/link"
+import { useCart } from "@/context/cart-context"
+import { CartDrawer } from "@/components/cart-drawer"
+import { SizeChartModal } from "@/components/size-chart-modal"
+
+export default function ProductPage({ params }: { params: { id: string } }) {
+  // This would normally come from a database or API
+  const product = {
+    id: params.id,
+    name: "Cream Cotton T-shirt",
+    brand: "Lori",
+    price: 49.0,
+    originalPrice: 99.0,
+    discount: 50,
+    images: ["/images/product-1.png", "/images/product-2.png", "/images/product-1.png", "/images/product-2.png"],
+    sizes: ["XS", "S", "M", "L", "XL", "XXL"],
+    materials: ["Skład surowcowy 100% Bawełna", "Dzianina single jersey o gramaturze 180g/m2"],
+    fit: "Regularny",
+  }
+
+  const [selectedSize, setSelectedSize] = useState<string>("")
+  const [quantity, setQuantity] = useState(1)
+  const [isSizeChartOpen, setIsSizeChartOpen] = useState(false)
+  const { addItem } = useCart()
+
+  // Ensure page starts at the top
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
+  const handleAddToCart = () => {
+    if (!selectedSize) {
+      alert("Proszę wybrać rozmiar")
+      return
+    }
+
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0],
+      quantity: quantity,
+      size: selectedSize,
+    })
+  }
+
+  return (
+    <>
+      <Navbar />
+      <CartDrawer />
+      <SizeChartModal isOpen={isSizeChartOpen} onClose={() => setIsSizeChartOpen(false)} />
+
+      <main className="container mx-auto px-4 pt-24 pb-8">
+        <div className="mb-6">
+          <Link href="/" className="text-sm border border-gray-300 px-4 py-2 inline-block hover:bg-gray-50">
+            Wróć na stronę główną Lori Blank ™
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
+          {/* Product Gallery */}
+          <div className="space-y-4">
+            <div className="aspect-square bg-gray-100 relative overflow-hidden">
+              <Image
+                src={product.images[0] || "/placeholder.svg"}
+                alt={product.name}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {product.images.map((image, index) => (
+                <div key={index} className="aspect-square bg-gray-100 relative overflow-hidden cursor-pointer">
+                  <Image
+                    src={image || "/placeholder.svg"}
+                    alt={`${product.name} view ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 25vw, 12vw"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Product Info */}
+          <div>
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-1">{product.brand}</p>
+              <h1 className="text-2xl font-bold mb-4">{product.name}</h1>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl font-medium">{product.price.toFixed(2)} zł</span>
+                <span className="text-gray-500 line-through text-sm">{product.originalPrice.toFixed(2)} zł</span>
+                <span className="text-red-500 text-sm">{product.discount}% TANIEJ</span>
+              </div>
+              <p className="text-sm text-gray-600">Najniższa cena w ciągu ostatnich 30 dni: 49.00 zł PLN</p>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-sm mb-2">Rozmiar</p>
+              <div className="grid grid-cols-6 gap-2">
+                {product.sizes.map((size) => (
+                  <button
+                    key={size}
+                    className={`border h-10 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-black ${
+                      selectedSize === size ? "border-black bg-black text-white" : "border-gray-300 hover:border-black"
+                    }`}
+                    onClick={() => setSelectedSize(size)}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+              {selectedSize && <p className="text-sm text-green-600 mt-2">Wybrano rozmiar: {selectedSize}</p>}
+            </div>
+
+            <div className="mb-6 grid grid-cols-4 gap-2">
+              <div className="col-span-1">
+                <Select value={quantity.toString()} onValueChange={(value) => setQuantity(Number.parseInt(value))}>
+                  <SelectTrigger className="w-full border-gray-300 rounded-none">
+                    <SelectValue placeholder="1" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-3">
+                <Button
+                  className="w-full bg-black text-white hover:bg-gray-800 rounded-none h-10"
+                  onClick={handleAddToCart}
+                >
+                  Dodaj do koszyka
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-6 space-y-4">
+              <div>
+                <h2 className="font-medium mb-2">Materiały:</h2>
+                <ul className="text-sm space-y-1">
+                  {product.materials.map((material, index) => (
+                    <li key={index}>{material}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h2 className="font-medium mb-2">Krój:</h2>
+                <p className="text-sm">{product.fit}</p>
+              </div>
+              <button className="flex items-center text-sm hover:underline" onClick={() => setIsSizeChartOpen(true)}>
+                <span className="mr-2">Tabela Rozmiarów</span>
+                <ChevronDown size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Info Section */}
+      <section className="bg-white py-12">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4">
+                <CreditCard className="h-5 w-5 text-gray-600" />
+              </div>
+              <h3 className="font-semibold text-base mb-2">Bezpieczne płatności</h3>
+              <p className="text-sm">Jako dostawców płatności używamy Przelewy24, Paypal oraz BLIK.</p>
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4">
+                <ShoppingBag className="h-5 w-5 text-gray-600" />
+              </div>
+              <h3 className="font-semibold text-base mb-2">Prosta realizacja zakupu</h3>
+              <p className="text-sm">Nasz checkout jest szybki i prosty w obsłudze.</p>
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4">
+                <HelpCircle className="h-5 w-5 text-gray-600" />
+              </div>
+              <h3 className="font-semibold text-base mb-2">Masz pytanie?</h3>
+              <p className="text-sm">Skontaktuj się z nami, jeżeli potrzebujesz pomocy przy korzystaniu z serwisu.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-white py-10 border-t border-gray-100">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between">
+            {/* Logo and Newsletter Section */}
+            <div className="mb-10 md:mb-0 md:w-1/3">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold">LORI</h2>
+              </div>
+              <p className="text-sm mb-6 max-w-md">
+                Subskrybuj aby na bieżąco otrzymywać zapowiedzi, informacje o nowych kolekcjach i przecenach.
+              </p>
+              <div className="space-y-4">
+                <Input type="text" placeholder="Imię" className="border-b border-gray-300 rounded-none px-3" />
+                <Input type="email" placeholder="Email" className="border-b border-gray-300 rounded-none px-3" />
+                <Button className="w-full bg-black text-white hover:bg-gray-800">
+                  Subskrybuj <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex space-x-4 mt-6">
+                <a href="#" className="text-black hover:text-gray-600">
+                  <Instagram size={20} />
+                </a>
+                <a href="#" className="text-black hover:text-gray-600">
+                  <Facebook size={20} />
+                </a>
+              </div>
+            </div>
+
+            {/* Site Map Section */}
+            <div className="mb-10 md:mb-0">
+              <h3 className="font-semibold text-base mb-4">Mapa strony</h3>
+              <ul className="space-y-4">
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Strona Główna
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Sklep
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Kampanie
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Kontakt
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Customer Service Section */}
+            <div>
+              <h3 className="font-semibold text-base mb-4">Obsługa klienta</h3>
+              <ul className="space-y-4">
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Dostawa i płatność
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Zwroty i reklamacje
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Regulamin
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    FAQ
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Polityka prywatności
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm hover:underline">
+                    Kontakt
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </>
+  )
+}
