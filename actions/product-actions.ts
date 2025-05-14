@@ -124,26 +124,37 @@ export async function getProductById(id: string) {
 }
 
 // Get products by category
-export async function getProductsByCategory(category: string) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    console.error("Supabase client not initialized")
+export async function getProductsByCategory(category: string, limit?: number) {
+  try {
+    const supabase = getSupabase()
+
+    let query = supabase
+      .from("products")
+      .select("*")
+      .eq("category", category)
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+
+    if (limit) {
+      query = query.limit(limit)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("Error fetching products by category:", error)
+      return []
+    }
+
+    // Transform the data to ensure images is an array
+    return data.map((product) => ({
+      ...product,
+      images: Array.isArray(product.images) ? product.images : [product.images],
+    }))
+  } catch (error) {
+    console.error("Error in getProductsByCategory:", error)
     return []
   }
-
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("category", category)
-    .eq("published", true)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching products by category:", error)
-    return []
-  }
-
-  return data as Product[]
 }
 
 // Search products

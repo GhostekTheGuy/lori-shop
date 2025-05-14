@@ -4,8 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CreditCard, ShoppingBag, HelpCircle, Instagram, Facebook, ArrowRight, ChevronUp } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
 
 export default function HomeClient() {
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -24,88 +22,6 @@ export default function HomeClient() {
     <>
       {/* Featured Collection Section */}
       <section className="w-full">
-        <div className="relative h-[300px] md:h-[400px] lg:h-[500px] w-full bg-cover bg-center overflow-hidden">
-          <Image
-            src="/images/lori-blanks-header.webp"
-            alt="Lori Blanks Collection"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-black bg-opacity-30" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-8">Lori Blanks</h2>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/sklep/blanks">
-                  <Button
-                    variant="outline"
-                    className="bg-transparent border-white text-white hover:bg-white hover:text-black min-w-[200px]"
-                  >
-                    Przeglądaj produkty <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/kolekcje/blanks">
-                  <Button
-                    variant="outline"
-                    className="bg-transparent border-white text-white hover:bg-white hover:text-black min-w-[200px]"
-                  >
-                    Kolekcje <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="container mx-auto py-12 px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-gray-100 relative group overflow-hidden">
-              <div className="absolute top-4 left-4 text-xs font-medium text-gray-500 z-10">REGULAR 320</div>
-              <Link href="/product/blanks-1" className="block">
-                <div className="aspect-[4/5] relative overflow-hidden">
-                  <Image
-                    src="/images/beige-hoodie.webp"
-                    alt="Beige Hoodie"
-                    fill
-                    className="object-contain transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-4 bg-white">
-                  <h3 className="font-medium">Beige Cotton Hoodie</h3>
-                  <p className="mt-1">219,00 zł</p>
-                </div>
-              </Link>
-            </div>
-
-            <div className="bg-gray-100 relative group overflow-hidden">
-              <div className="absolute top-4 left-4 text-xs font-medium text-gray-500 z-10">REGULAR 320</div>
-              <Link href="/product/blanks-2" className="block">
-                <div className="aspect-[4/5] relative overflow-hidden">
-                  <Image
-                    src="/images/mauve-hoodie.webp"
-                    alt="Mauve Hoodie"
-                    fill
-                    className="object-contain transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-4 bg-white">
-                  <h3 className="font-medium">Mauve Cotton Hoodie</h3>
-                  <p className="mt-1">219,00 zł</p>
-                </div>
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex justify-center mt-8">
-            <Link href="/sklep/blanks">
-              <Button variant="outline" className="border-black text-black hover:bg-black hover:text-white">
-                Zobacz wszystkie produkty
-              </Button>
-            </Link>
-          </div>
-        </div>
-
         {/* Back to top button with scroll animation */}
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

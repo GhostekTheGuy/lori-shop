@@ -2,12 +2,24 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, ShoppingBag, Users, Settings, Package, Tag, FileText, BarChart, LogOut } from "lucide-react"
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Users,
+  Settings,
+  Package,
+  Tag,
+  FileText,
+  BarChart,
+  LogOut,
+  Layers,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const sidebarItems = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
+  { name: "Collections", href: "/admin/collections", icon: Layers },
   { name: "Categories", href: "/admin/categories", icon: Tag },
   { name: "Orders", href: "/admin/orders", icon: Package },
   { name: "Customers", href: "/admin/customers", icon: Users },

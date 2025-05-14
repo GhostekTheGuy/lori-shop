@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Upload, X, Loader2 } from "lucide-react"
+import { Upload, X, Loader2, AlertTriangle, Info, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,6 +29,8 @@ export function AdminProductForm({ product }: ProductFormProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [uploadBucket, setUploadBucket] = useState<string | null>(null)
+  const [skipImageUpload, setSkipImageUpload] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -84,6 +86,10 @@ export function AdminProductForm({ product }: ProductFormProps) {
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
+    if (skipImageUpload) {
+      setError("Image upload is currently disabled. Please enable it to upload images.")
+      return
+    }
 
     setIsUploading(true)
     setError(null)
@@ -102,12 +108,17 @@ export function AdminProductForm({ product }: ProductFormProps) {
         }
 
         newImages.push(result.url)
+
+        // Store which bucket was used for the upload
+        if (result.bucket) {
+          setUploadBucket(result.bucket)
+        }
       }
 
       setFormData((prev) => ({ ...prev, images: newImages }))
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error uploading images:", err)
-      setError("Failed to upload images. Please try again.")
+      setError(err.message || "Failed to upload images. Please try again.")
     } finally {
       setIsUploading(false)
       // Reset the file input
@@ -169,12 +180,17 @@ export function AdminProductForm({ product }: ProductFormProps) {
       setTimeout(() => {
         router.push("/admin/products")
       }, 1500)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving product:", err)
-      setError("Failed to save product. Please try again.")
+      setError(err.message || "Failed to save product. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Toggle skip image upload
+  const toggleSkipImageUpload = () => {
+    setSkipImageUpload(!skipImageUpload)
   }
 
   return (
@@ -324,6 +340,42 @@ export function AdminProductForm({ product }: ProductFormProps) {
         <TabsContent value="images" className="space-y-6">
           <div className="space-y-4">
             <Label>Product Images</Label>
+
+            <Alert className="bg-amber-50 border-amber-200 mb-4">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mr-2" />
+              <AlertDescription className="text-amber-800">
+                <p className="font-medium">Storage Setup Required</p>
+                <p className="mt-1">To upload product images, you need to create a storage bucket in Supabase:</p>
+                <ol className="list-decimal ml-5 mt-2 space-y-1">
+                  <li>
+                    Go to your{" "}
+                    <a
+                      href="https://app.supabase.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 hover:underline inline-flex items-center"
+                    >
+                      Supabase dashboard <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  </li>
+                  <li>Navigate to Storage in the sidebar</li>
+                  <li>Click "New Bucket" and name it "product-images"</li>
+                  <li>Enable "Public bucket" for the images to be accessible</li>
+                  <li>Under "Policies", add a policy that allows uploads (INSERT)</li>
+                </ol>
+                <div className="mt-4 flex items-center">
+                  <Checkbox
+                    id="skip-image-upload"
+                    checked={skipImageUpload}
+                    onCheckedChange={() => toggleSkipImageUpload()}
+                  />
+                  <Label htmlFor="skip-image-upload" className="ml-2 cursor-pointer">
+                    Skip image upload for now and continue with product creation
+                  </Label>
+                </div>
+              </AlertDescription>
+            </Alert>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {formData.images.map((image, index) => (
                 <div key={index} className="relative aspect-square bg-gray-100 rounded-md overflow-hidden">
@@ -342,7 +394,9 @@ export function AdminProductForm({ product }: ProductFormProps) {
                   </button>
                 </div>
               ))}
-              <label className="aspect-square bg-gray-100 rounded-md border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+              <label
+                className={`aspect-square bg-gray-100 rounded-md border-2 border-dashed border-gray-300 flex flex-col items-center justify-center ${skipImageUpload ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50"} transition-colors`}
+              >
                 {isUploading ? (
                   <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                 ) : (
@@ -358,10 +412,20 @@ export function AdminProductForm({ product }: ProductFormProps) {
                   onChange={handleImageUpload}
                   className="hidden"
                   ref={fileInputRef}
-                  disabled={isUploading}
+                  disabled={isUploading || skipImageUpload}
                 />
               </label>
             </div>
+
+            {formData.images.length === 0 && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <Info className="h-4 w-4 text-blue-600 mr-2" />
+                <AlertDescription className="text-blue-800">
+                  You can continue without images and add them later.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <p className="text-sm text-gray-500">
               You can upload up to 8 images. First image will be used as the product thumbnail.
             </p>

@@ -3,12 +3,16 @@ import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { ProductCard } from "@/components/product-card"
 import { CartDrawer } from "@/components/cart-drawer"
-import { getFeaturedProducts } from "@/actions/product-actions"
+import { getFeaturedProducts, getFeaturedCollections } from "@/actions/collection-actions"
 import { ProductCardSkeleton } from "@/components/product-card-skeleton"
 import HomeClient from "@/components/home-client"
+import FeaturedCollection from "@/components/featured-collection"
+import { Loader2 } from "lucide-react"
 
+// Update the home page to handle the case where we can't filter by featured collections
 export default async function Home() {
   const featuredProducts = await getFeaturedProducts()
+  const featuredCollections = await getFeaturedCollections() // This now returns published collections
 
   return (
     <>
@@ -77,6 +81,27 @@ export default async function Home() {
           </section>
         </Suspense>
       </main>
+
+      {/* Collections Section - Updated to handle any published collections */}
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        }
+      >
+        {featuredCollections.length > 0
+          ? featuredCollections.map((collection) => (
+              <FeaturedCollection
+                key={collection.id}
+                id={collection.id}
+                name={collection.name}
+                slug={collection.slug}
+                heroImage={collection.hero_image || ""}
+              />
+            ))
+          : null}
+      </Suspense>
 
       <HomeClient />
     </>

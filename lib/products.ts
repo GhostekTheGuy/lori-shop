@@ -93,3 +93,20 @@ export const mockProducts = [
 export function getProductById(id: string) {
   return mockProducts.find((product) => product.id === id) || null
 }
+
+// If there's a getCollectionWithProducts function that filters by published, update it
+// For example, if there's code like this:
+/*
+const { data: products, error: productDetailsError } = await supabase
+  .from("products")
+  .select("*")
+  .in("id", productIds)
+  .eq("published", true)
+*/
+// Change it to:
+/*
+const { data: products, error: productDetailsError } = await supabase
+  .from("products")
+  .select("*")
+  .in("id", productIds)
+*/
