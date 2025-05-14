@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Edit, Trash2, Search, Filter, ArrowUpDown } from "lucide-react"
@@ -8,17 +8,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { mockProducts } from "@/lib/products"
+import { getAllProductsForAdmin, deleteProduct, type Product } from "@/actions/product-actions"
+import { useRouter } from "next/navigation"
 
 export function AdminProductList() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<string | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
-  // In a real app, you would fetch this data from your API and handle filtering/sorting on the server
-  let filteredProducts = [...mockProducts]
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoading(true)
+      const data = await getAllProductsForAdmin()
+      setProducts(data)
+      setIsLoading(false)
+    }
+
+    fetchProducts()
+  }, [])
 
   // Apply search filter
+  let filteredProducts = [...products]
   if (searchQuery) {
     const query = searchQuery.toLowerCase()
     filteredProducts = filteredProducts.filter(
@@ -28,7 +41,7 @@ export function AdminProductList() {
 
   // Apply status filter
   if (statusFilter) {
-    filteredProducts = filteredProducts.filter((product) => product.stockStatus === statusFilter)
+    filteredProducts = filteredProducts.filter((product) => product.stock_status === statusFilter)
   }
 
   // Apply sorting
@@ -41,18 +54,10 @@ export function AdminProductList() {
         filteredProducts.sort((a, b) => b.name.localeCompare(a.name))
         break
       case "price-asc":
-        filteredProducts.sort(
-          (a, b) =>
-            Number.parseFloat(a.salePrice.replace(/[^\d.-]/g, "")) -
-            Number.parseFloat(b.salePrice.replace(/[^\d.-]/g, "")),
-        )
+        filteredProducts.sort((a, b) => a.price - b.price)
         break
       case "price-desc":
-        filteredProducts.sort(
-          (a, b) =>
-            Number.parseFloat(b.salePrice.replace(/[^\d.-]/g, "")) -
-            Number.parseFloat(a.salePrice.replace(/[^\d.-]/g, "")),
-        )
+        filteredProducts.sort((a, b) => b.price - a.price)
         break
       default:
         break
@@ -70,6 +75,18 @@ export function AdminProductList() {
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Sold Out</Badge>
       default:
         return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{status}</Badge>
+    }
+  }
+
+  const handleDeleteProduct = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this product?")) {
+      const result = await deleteProduct(id)
+      if (result.success) {
+        // Remove the product from the local state
+        setProducts((prevProducts) => prevProducts.filter((product) => product.id !== id))
+      } else {
+        alert(`Failed to delete product: ${result.error}`)
+      }
     }
   }
 
@@ -131,55 +148,69 @@ export function AdminProductList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredProducts.map((product) => (
-              <tr key={product.id} className="hover:bg-gray-50">
-                <td className="p-4">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 bg-gray-100 rounded-md overflow-hidden mr-3 flex-shrink-0">
-                      <Image
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        width={40}
-                        height={40}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="font-medium">{product.name}</div>
-                  </div>
-                </td>
-                <td className="p-4 text-gray-500">{product.id}</td>
-                <td className="p-4">
-                  <div className="font-medium">{product.salePrice}</div>
-                  {product.salePrice !== product.originalPrice && (
-                    <div className="text-xs text-gray-500 line-through">{product.originalPrice}</div>
-                  )}
-                </td>
-                <td className="p-4">{getStatusBadge(product.stockStatus || "in-stock")}</td>
-                <td className="p-4">
-                  <div className="flex space-x-1">
-                    <Link href={`/admin/products/edit/${product.id}`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+            {isLoading ? (
+              <tr>
+                <td colSpan={5} className="p-4 text-center">
+                  Loading products...
                 </td>
               </tr>
-            ))}
+            ) : filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="p-4">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 bg-gray-100 rounded-md overflow-hidden mr-3 flex-shrink-0">
+                        <Image
+                          src={product.images[0] || "/placeholder.svg"}
+                          alt={product.name}
+                          width={40}
+                          height={40}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="font-medium">{product.name}</div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-gray-500">{product.id}</td>
+                  <td className="p-4">
+                    <div className="font-medium">{product.price.toFixed(2)} zł</div>
+                    {product.sale_price && (
+                      <div className="text-xs text-gray-500 line-through">{product.sale_price.toFixed(2)} zł</div>
+                    )}
+                  </td>
+                  <td className="p-4">{getStatusBadge(product.stock_status)}</td>
+                  <td className="p-4">
+                    <div className="flex space-x-1">
+                      <Link href={`/admin/products/edit/${product.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600"
+                        onClick={() => handleDeleteProduct(product.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="p-8 text-center">
+                  <p className="text-gray-500">No products found</p>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
-        {filteredProducts.length === 0 && (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">No products found</p>
-          </div>
-        )}
       </div>
       <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Showing {filteredProducts.length} of {mockProducts.length} products
+          Showing {filteredProducts.length} of {products.length} products
         </div>
         <div className="flex space-x-2">
           <Button variant="outline" size="sm" disabled>

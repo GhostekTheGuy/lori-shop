@@ -5,7 +5,7 @@ import { getSupabase } from "@/lib/supabase"
 import { v4 as uuidv4 } from "uuid"
 
 // Type for product form data
-type ProductFormData = {
+export type ProductFormData = {
   id?: string
   name: string
   description: string
@@ -23,8 +23,49 @@ type ProductFormData = {
   colors: string[]
 }
 
+export type Product = {
+  id: string
+  name: string
+  description: string
+  price: number
+  sale_price: number | null
+  category: string
+  stock_status: "in-stock" | "low-stock" | "sold-out"
+  stock_quantity: number | null
+  images: string[]
+  tags: string[]
+  featured: boolean
+  published: boolean
+  sku: string
+  sizes: string[]
+  colors: string[]
+  created_at: string
+}
+
 // Get all products
 export async function getProducts() {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not initialized")
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("published", true)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching products:", error)
+    return []
+  }
+
+  return data as Product[]
+}
+
+// Get all products for admin (including unpublished)
+export async function getAllProductsForAdmin() {
   const supabase = getSupabase()
   if (!supabase) {
     console.error("Supabase client not initialized")
@@ -38,7 +79,7 @@ export async function getProducts() {
     return []
   }
 
-  return data
+  return data as Product[]
 }
 
 // Get featured products
@@ -61,7 +102,7 @@ export async function getFeaturedProducts() {
     return []
   }
 
-  return data
+  return data as Product[]
 }
 
 // Get product by ID
@@ -79,7 +120,7 @@ export async function getProductById(id: string) {
     return null
   }
 
-  return data
+  return data as Product
 }
 
 // Get products by category
@@ -102,7 +143,30 @@ export async function getProductsByCategory(category: string) {
     return []
   }
 
-  return data
+  return data as Product[]
+}
+
+// Search products
+export async function searchProducts(query: string) {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not initialized")
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("published", true)
+    .or(`name.ilike.%${query}%,description.ilike.%${query}%,tags.cs.{${query}}`)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error searching products:", error)
+    return []
+  }
+
+  return data as Product[]
 }
 
 // Create a new product
@@ -141,6 +205,7 @@ export async function createProduct(formData: ProductFormData) {
   // Revalidate the products page to show the new product
   revalidatePath("/admin/products")
   revalidatePath("/sklep")
+  revalidatePath("/")
 
   return { success: true, productId }
 }
@@ -185,6 +250,7 @@ export async function updateProduct(formData: ProductFormData) {
   revalidatePath("/admin/products")
   revalidatePath(`/product/${formData.id}`)
   revalidatePath("/sklep")
+  revalidatePath("/")
 
   return { success: true, productId: formData.id }
 }
@@ -206,6 +272,7 @@ export async function deleteProduct(id: string) {
   // Revalidate the products page to remove the deleted product
   revalidatePath("/admin/products")
   revalidatePath("/sklep")
+  revalidatePath("/")
 
   return { success: true }
 }

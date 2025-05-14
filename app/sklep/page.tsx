@@ -1,76 +1,13 @@
+import { Suspense } from "react"
 import { Navbar } from "@/components/navbar"
 import { ProductCard } from "@/components/product-card"
 import { CartDrawer } from "@/components/cart-drawer"
 import { Button } from "@/components/ui/button"
+import { getProducts } from "@/actions/product-actions"
+import { ProductCardSkeleton } from "@/components/product-card-skeleton"
 
-export default function ShopPage() {
-  // Mock products data - in a real app, this would come from a database or API
-  const products = [
-    {
-      id: "1",
-      name: "Cream Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-1.png",
-      tag: "SALE",
-    },
-    {
-      id: "2",
-      name: "Light Gray Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-2.png",
-      tag: undefined,
-    },
-    {
-      id: "3",
-      name: "Black Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-1.png",
-      tag: "SALE",
-    },
-    {
-      id: "4",
-      name: "White Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-2.png",
-      tag: undefined,
-    },
-    {
-      id: "5",
-      name: "Navy Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-1.png",
-      tag: "SALE",
-    },
-    {
-      id: "6",
-      name: "Beige Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-2.png",
-      tag: undefined,
-    },
-    {
-      id: "7",
-      name: "Olive Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-1.png",
-      tag: "SALE",
-    },
-    {
-      id: "8",
-      name: "Burgundy Cotton T-shirt",
-      salePrice: "95,20 zł",
-      originalPrice: "119,00 zł",
-      image: "/images/product-2.png",
-      tag: undefined,
-    },
-  ]
+export default async function ShopPage() {
+  const products = await getProducts()
 
   return (
     <>
@@ -182,19 +119,41 @@ export default function ShopPage() {
 
           {/* Products grid */}
           <div className="w-full md:w-3/4 lg:w-4/5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  id={product.id}
-                  name={product.name}
-                  salePrice={product.salePrice}
-                  originalPrice={product.originalPrice}
-                  image={product.image}
-                  tag={product.tag}
-                />
-              ))}
-            </div>
+            <Suspense
+              fallback={
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <ProductCardSkeleton key={i} />
+                  ))}
+                </div>
+              }
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {products.length > 0 ? (
+                  products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      id={product.id}
+                      name={product.name}
+                      salePrice={
+                        product.sale_price ? `${product.sale_price.toFixed(2)} zł` : `${product.price.toFixed(2)} zł`
+                      }
+                      originalPrice={
+                        product.sale_price ? `${product.price.toFixed(2)} zł` : `${product.price.toFixed(2)} zł`
+                      }
+                      image={product.images[0] || "/placeholder.svg"}
+                      tag={product.sale_price ? "SALE" : undefined}
+                      stockStatus={product.stock_status}
+                      stockQuantity={product.stock_quantity}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full py-12 text-center">
+                    <p className="text-gray-500">Brak produktów</p>
+                  </div>
+                )}
+              </div>
+            </Suspense>
           </div>
         </div>
       </main>

@@ -3,19 +3,14 @@ import { ProductCard } from "@/components/product-card"
 import { CartDrawer } from "@/components/cart-drawer"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { getProductsByCategory } from "@/actions/product-actions"
+import { ProductCardSkeleton } from "@/components/product-card-skeleton"
+import { Suspense } from "react"
 
 // Define the category data type
 type CategoryData = {
   title: string
   description: string
-  products: Array<{
-    id: string
-    name: string
-    salePrice: string
-    originalPrice: string
-    image: string
-    tag?: string
-  }>
 }
 
 // Map of category slugs to their display data
@@ -23,140 +18,49 @@ const categoryData: Record<string, CategoryData> = {
   koszulki: {
     title: "Koszulki",
     description: "Nasza kolekcja wysokiej jakości koszulek",
-    products: Array(8)
-      .fill(null)
-      .map((_, i) => ({
-        id: `koszulki-${i + 1}`,
-        name: `Koszulka ${i % 2 === 0 ? "Cream" : "Light Gray"} Cotton`,
-        salePrice: "95,20 zł",
-        originalPrice: "119,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 3 === 0 ? "SALE" : undefined,
-      })),
   },
   "bluzy-z-kapturem": {
     title: "Bluzy z kapturem",
     description: "Komfortowe bluzy z kapturem na każdą okazję",
-    products: Array(6)
-      .fill(null)
-      .map((_, i) => ({
-        id: `bluzy-z-kapturem-${i + 1}`,
-        name: `Bluza z kapturem ${i % 2 === 0 ? "Black" : "Gray"} Cotton`,
-        salePrice: "159,20 zł",
-        originalPrice: "199,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 4 === 0 ? "SALE" : undefined,
-      })),
   },
   "bluzy-bez-kaptura": {
     title: "Bluzy bez kaptura",
     description: "Stylowe bluzy bez kaptura do codziennych stylizacji",
-    products: Array(5)
-      .fill(null)
-      .map((_, i) => ({
-        id: `bluzy-bez-kaptura-${i + 1}`,
-        name: `Bluza bez kaptura ${i % 2 === 0 ? "Navy" : "White"} Cotton`,
-        salePrice: "139,20 zł",
-        originalPrice: "174,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 3 === 0 ? "SALE" : undefined,
-      })),
   },
   longsleeve: {
     title: "Longsleeve",
     description: "Koszulki z długim rękawem na chłodniejsze dni",
-    products: Array(7)
-      .fill(null)
-      .map((_, i) => ({
-        id: `longsleeve-${i + 1}`,
-        name: `Longsleeve ${i % 2 === 0 ? "Black" : "White"} Cotton`,
-        salePrice: "119,20 zł",
-        originalPrice: "149,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 4 === 0 ? "SALE" : undefined,
-      })),
   },
   koszule: {
     title: "Koszule",
     description: "Eleganckie koszule na specjalne okazje",
-    products: Array(4)
-      .fill(null)
-      .map((_, i) => ({
-        id: `koszule-${i + 1}`,
-        name: `Koszula ${i % 2 === 0 ? "White" : "Blue"} Cotton`,
-        salePrice: "179,20 zł",
-        originalPrice: "224,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 2 === 0 ? "SALE" : undefined,
-      })),
   },
   spodnie: {
     title: "Spodnie",
     description: "Wygodne spodnie na każdą okazję",
-    products: Array(6)
-      .fill(null)
-      .map((_, i) => ({
-        id: `spodnie-${i + 1}`,
-        name: `Spodnie ${i % 2 === 0 ? "Black" : "Beige"} Cotton`,
-        salePrice: "199,20 zł",
-        originalPrice: "249,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 3 === 0 ? "SALE" : undefined,
-      })),
   },
   szorty: {
     title: "Szorty",
     description: "Komfortowe szorty na ciepłe dni",
-    products: Array(5)
-      .fill(null)
-      .map((_, i) => ({
-        id: `szorty-${i + 1}`,
-        name: `Szorty ${i % 2 === 0 ? "Black" : "Gray"} Cotton`,
-        salePrice: "129,20 zł",
-        originalPrice: "159,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 4 === 0 ? "SALE" : undefined,
-      })),
   },
   kurtki: {
     title: "Kurtki",
     description: "Stylowe kurtki na chłodniejsze dni",
-    products: Array(4)
-      .fill(null)
-      .map((_, i) => ({
-        id: `kurtki-${i + 1}`,
-        name: `Kurtka ${i % 2 === 0 ? "Black" : "Olive"} Cotton`,
-        salePrice: "299,20 zł",
-        originalPrice: "374,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 2 === 0 ? "SALE" : undefined,
-      })),
   },
   akcesoria: {
     title: "Akcesoria",
     description: "Dodatki uzupełniające Twój styl",
-    products: Array(8)
-      .fill(null)
-      .map((_, i) => ({
-        id: `akcesoria-${i + 1}`,
-        name: `${i % 4 === 0 ? "Czapka" : i % 4 === 1 ? "Pasek" : i % 4 === 2 ? "Torba" : "Portfel"} ${
-          i % 2 === 0 ? "Black" : "Brown"
-        }`,
-        salePrice: "79,20 zł",
-        originalPrice: "99,00 zł",
-        image: i % 2 === 0 ? "/images/product-1.png" : "/images/product-2.png",
-        tag: i % 3 === 0 ? "SALE" : undefined,
-      })),
   },
 }
 
-export default function CategoryPage({ params }: { params: { category: string } }) {
+export default async function CategoryPage({ params }: { params: { category: string } }) {
   const { category } = params
   const data = categoryData[category] || {
     title: "Kategoria",
     description: "Produkty z tej kategorii",
-    products: [],
   }
+
+  const products = await getProductsByCategory(category)
 
   return (
     <>
@@ -242,28 +146,44 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
           {/* Products grid */}
           <div className="w-full md:w-3/4 lg:w-4/5">
-            {data.products.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {data.products.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    id={product.id}
-                    name={product.name}
-                    salePrice={product.salePrice}
-                    originalPrice={product.originalPrice}
-                    image={product.image}
-                    tag={product.tag}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">Brak produktów w tej kategorii.</p>
-                <Link href="/sklep" className="text-black underline">
-                  Wróć do sklepu
-                </Link>
-              </div>
-            )}
+            <Suspense
+              fallback={
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <ProductCardSkeleton key={i} />
+                  ))}
+                </div>
+              }
+            >
+              {products.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      id={product.id}
+                      name={product.name}
+                      salePrice={
+                        product.sale_price ? `${product.sale_price.toFixed(2)} zł` : `${product.price.toFixed(2)} zł`
+                      }
+                      originalPrice={
+                        product.sale_price ? `${product.price.toFixed(2)} zł` : `${product.price.toFixed(2)} zł`
+                      }
+                      image={product.images[0] || "/placeholder.svg"}
+                      tag={product.sale_price ? "SALE" : undefined}
+                      stockStatus={product.stock_status}
+                      stockQuantity={product.stock_quantity}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">Brak produktów w tej kategorii.</p>
+                  <Link href="/sklep" className="text-black underline">
+                    Wróć do sklepu
+                  </Link>
+                </div>
+              )}
+            </Suspense>
           </div>
         </div>
       </main>
