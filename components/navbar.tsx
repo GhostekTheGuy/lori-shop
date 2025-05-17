@@ -262,7 +262,7 @@ export function Navbar() {
               <Link href="/">
                 <Image
                   src="/images/lori.webp"
-                  alt="PHENOTYPE"
+                  alt="LORI"
                   width={150}
                   height={30}
                   className={`h-8 w-auto transition-all duration-500 ${shouldBeWhite ? "" : "filter invert"}`}
