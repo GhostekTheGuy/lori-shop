@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button"
 import { X, Plus, Minus, ShoppingBag } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 
 export function CartDrawer() {
   const { items, isOpen, closeCart, removeItem, updateQuantity, subtotal, totalItems } = useCart()
   const [isVisible, setIsVisible] = useState(false)
   const [isRendered, setIsRendered] = useState(false)
+  const router = useRouter()
 
   // Handle animation states
   useEffect(() => {
@@ -37,6 +39,11 @@ export function CartDrawer() {
       document.body.style.overflow = "auto"
     }
   }, [isOpen])
+
+  const handleCheckout = () => {
+    closeCart()
+    router.push("/checkout")
+  }
 
   if (!isRendered) return null
 
@@ -97,7 +104,9 @@ export function CartDrawer() {
                 <span className="font-medium">{subtotal.toFixed(2)} zł</span>
               </div>
               <p className="text-sm text-gray-500 mb-4">Koszty wysyłki i podatki obliczane przy kasie</p>
-              <Button className="w-full bg-black text-white hover:bg-gray-800">Przejdź do kasy</Button>
+              <Button onClick={handleCheckout} className="w-full bg-black text-white hover:bg-gray-800">
+                Przejdź do kasy
+              </Button>
             </div>
           )}
         </div>

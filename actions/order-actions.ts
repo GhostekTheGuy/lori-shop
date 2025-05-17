@@ -1,13 +1,12 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-import { getSupabase } from "@/lib/supabase"
-import { getStripeInstance } from "@/lib/stripe"
 import { v4 as uuidv4 } from "uuid"
+import { getSupabase } from "@/lib/supabase"
+import { createPaymentIntent } from "@/lib/stripe"
 import type { CartItem } from "@/context/cart-context"
+import { revalidatePath } from "next/cache"
 
-// Type for order data
-type OrderData = {
+interface OrderData {
   userId: string
   items: CartItem[]
   shippingAddress: {
@@ -20,61 +19,32 @@ type OrderData = {
     phone: string
   }
   total: number
+  paymentMethod?: "stripe" | "cash_on_delivery"
 }
 
-// Create a new order
-export async function createOrder(orderData: OrderData) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    return { success: false, error: "Supabase client not initialized" }
-  }
-
-  // Generate a unique order ID
-  const orderId = uuidv4()
-
-  // Get Stripe instance
-  const stripe = getStripeInstance()
-  if (!stripe) {
-    return { success: false, error: "Stripe client not initialized" }
-  }
-
+export async function createOrder(data: OrderData) {
   try {
-    // Create a payment intent with Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(orderData.total * 100), // Stripe uses cents
-      currency: "pln",
-      metadata: {
-        orderId,
-        userId: orderData.userId,
-      },
-    })
+    const supabase = getSupabase()
+    const orderId = uuidv4()
 
-    // Insert the order into the database
+    // Create order in database
     const { error: orderError } = await supabase.from("orders").insert({
       id: orderId,
-      user_id: orderData.userId,
-      status: "pending",
-      total: orderData.total,
-      shipping_address: {
-        first_name: orderData.shippingAddress.firstName,
-        last_name: orderData.shippingAddress.lastName,
-        address: orderData.shippingAddress.address,
-        city: orderData.shippingAddress.city,
-        postal_code: orderData.shippingAddress.postalCode,
-        country: orderData.shippingAddress.country,
-        phone: orderData.shippingAddress.phone,
-      },
-      payment_intent: paymentIntent.id,
+      user_id: data.userId,
+      total: data.total,
+      shipping_address: data.shippingAddress,
       payment_status: "pending",
+      status: "pending",
+      payment_method: data.paymentMethod || "stripe",
     })
 
     if (orderError) {
       console.error("Error creating order:", orderError)
-      return { success: false, error: orderError.message }
+      return { success: false, error: "Failed to create order" }
     }
 
     // Insert order items
-    const orderItems = orderData.items.map((item) => ({
+    const orderItems = data.items.map((item) => ({
       order_id: orderId,
       product_id: item.id,
       quantity: item.quantity,
@@ -87,17 +57,93 @@ export async function createOrder(orderData: OrderData) {
 
     if (itemsError) {
       console.error("Error creating order items:", itemsError)
-      return { success: false, error: itemsError.message }
+      return { success: false, error: "Failed to create order items" }
     }
+
+    // If payment method is stripe, create payment intent
+    let clientSecret = null
+    if (!data.paymentMethod || data.paymentMethod === "stripe") {
+      const paymentIntent = await createPaymentIntent({
+        amount: Math.round(data.total * 100), // Convert to cents
+        currency: "pln",
+        metadata: {
+          orderId,
+          userId: data.userId,
+        },
+      })
+
+      if (!paymentIntent || !paymentIntent.client_secret) {
+        return { success: false, error: "Failed to create payment intent" }
+      }
+
+      // Update order with payment intent ID
+      await supabase.from("orders").update({ payment_intent: paymentIntent.id }).eq("id", orderId)
+
+      clientSecret = paymentIntent.client_secret
+    }
+
+    revalidatePath("/checkout")
+    revalidatePath("/checkout/success")
 
     return {
       success: true,
       orderId,
-      clientSecret: paymentIntent.client_secret,
+      clientSecret,
+      paymentMethod: data.paymentMethod || "stripe",
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in createOrder:", error)
-    return { success: false, error: error.message || "Failed to create order" }
+    return { success: false, error: "An unexpected error occurred" }
+  }
+}
+
+export async function getOrderById(orderId: string) {
+  try {
+    const supabase = getSupabase()
+
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        order_items:order_items(
+          *,
+          product:products(*)
+        )
+      `)
+      .eq("id", orderId)
+      .single()
+
+    if (error) {
+      console.error("Error fetching order:", error)
+      return null
+    }
+
+    return order
+  } catch (error) {
+    console.error("Error in getOrderById:", error)
+    return null
+  }
+}
+
+export async function getUserOrders(userId: string) {
+  try {
+    const supabase = getSupabase()
+
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching user orders:", error)
+      return []
+    }
+
+    return orders
+  } catch (error) {
+    console.error("Error in getUserOrders:", error)
+    return []
   }
 }
 
@@ -116,60 +162,6 @@ export async function getOrders() {
 
   if (error) {
     console.error("Error fetching orders:", error)
-    return []
-  }
-
-  return data
-}
-
-// Get order by ID
-export async function getOrderById(id: string) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    console.error("Supabase client not initialized")
-    return null
-  }
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select("*, users(email, first_name, last_name)")
-    .eq("id", id)
-    .single()
-
-  if (orderError) {
-    console.error("Error fetching order:", orderError)
-    return null
-  }
-
-  const { data: items, error: itemsError } = await supabase
-    .from("order_items")
-    .select("*, products(*)")
-    .eq("order_id", id)
-
-  if (itemsError) {
-    console.error("Error fetching order items:", itemsError)
-    return { ...order, items: [] }
-  }
-
-  return { ...order, items }
-}
-
-// Get orders for a specific user
-export async function getUserOrders(userId: string) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    console.error("Supabase client not initialized")
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching user orders:", error)
     return []
   }
 

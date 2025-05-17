@@ -306,7 +306,7 @@ export function Navbar() {
               <button
                 onClick={openCart}
                 className={`relative transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
-                aria-label="Open cart"
+                aria-label="Koszyk"
               >
                 <ShoppingBag size={20} />
                 {totalItems > 0 && (
