@@ -24,12 +24,6 @@ const slides = [
     title: "Miejski Styl",
     subtitle: "Ubrania stworzone z myślą o nowoczesnym, miejskim stylu życia.",
   },
-  {
-    id: 4,
-    image: "/images/slider-4.png",
-    title: "Limitowana Edycja",
-    subtitle: "Ekskluzywne projekty dostępne tylko przez ograniczony czas.",
-  },
 ]
 
 export default function HeroSlider() {
@@ -73,7 +67,7 @@ export default function HeroSlider() {
               className="object-cover"
               priority={index === 0}
             />
-            <div className="absolute inset-0 bg-black bg-opacity-40" />
+            <div className="absolute inset-0 bg-black bg-opacity-70" />
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center px-4">
                 <h2

@@ -36,7 +36,7 @@ export function AnnouncementBar() {
     <div className="bg-red-500 text-white">
       <div className="flex items-center justify-center h-9">
         <p className="text-sm">
-          Świętujemy 12-lecie Phenotype! Nowa kolekcja już online – z rabatami od 20% do 70% na nowości i klasyki!
+          Świętujemy 12-lecie! Nowa kolekcja już online – z rabatami od 20% do 70% na nowości i klasyki!
           <span className="ml-2">
             {days} Dni {hours} Godzin {minutes} Minut {seconds} Sekund
           </span>
