@@ -1,29 +1,34 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Get environment variables with validation
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Singleton pattern to avoid multiple instances
+let supabaseClient: any = null
+let supabaseAdminClient: any = null
 
-// Debug environment variables (only in development)
-if (process.env.NODE_ENV !== "production") {
-  console.log("Supabase URL:", supabaseUrl ? "Set" : "Not set")
-  console.log("Supabase Anon Key:", supabaseAnonKey ? "Set" : "Not set")
-}
+export function getSupabase(useServiceRole = false) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = useServiceRole ? process.env.SUPABASE_SERVICE_ROLE_KEY : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Create a singleton Supabase client
-let supabaseInstance: ReturnType<typeof createClient> | null = null
-
-export const getSupabase = () => {
-  if (!supabaseInstance && supabaseUrl && supabaseAnonKey) {
-    try {
-      supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
-      console.log("Supabase client initialized successfully")
-    } catch (error) {
-      console.error("Error initializing Supabase client:", error)
-      return null
-    }
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("Supabase URL or key is missing")
+    return null
   }
-  return supabaseInstance
+
+  // Return existing instance if available
+  if (useServiceRole) {
+    if (!supabaseAdminClient) {
+      supabaseAdminClient = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: false,
+        },
+      })
+    }
+    return supabaseAdminClient
+  } else {
+    if (!supabaseClient) {
+      supabaseClient = createClient(supabaseUrl, supabaseKey)
+    }
+    return supabaseClient
+  }
 }
 
 // For backward compatibility

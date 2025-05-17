@@ -7,12 +7,22 @@ import { Instagram, Facebook, User, Search, ShoppingBag, Settings } from "lucide
 import { usePathname } from "next/navigation"
 import { useCart } from "@/context/cart-context"
 import { SearchDialog } from "@/components/search-dialog"
+import { getPublishedCollections } from "@/actions/collection-actions"
+import { getProductCategories } from "@/actions/product-actions"
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isShopMenuOpen, setIsShopMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [collections, setCollections] = useState<Array<{ name: string; slug: string; isNew?: boolean }>>([])
+  const [featuredCollections, setFeaturedCollections] = useState<Array<{ name: string; href: string; image: string }>>(
+    [],
+  )
+  const [categories, setCategories] = useState<Array<{ name: string; href: string }>>([])
+  const [isLoadingCollections, setIsLoadingCollections] = useState(true)
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+
   const shopMenuRef = useRef<HTMLDivElement>(null)
   const shopLinkRef = useRef<HTMLAnchorElement>(null)
   const menuTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -25,6 +35,93 @@ export function Navbar() {
 
   // Determine if navbar should be white
   const shouldBeWhite = isScrolled || !isHomePage || isShopMenuOpen
+
+  // Fetch collections from the database
+  useEffect(() => {
+    const fetchCollections = async () => {
+      try {
+        setIsLoadingCollections(true)
+        const dbCollections = await getPublishedCollections()
+
+        // Transform collections for the navbar
+        const transformedCollections = dbCollections.map((collection) => ({
+          name: collection.name,
+          slug: collection.slug,
+          isNew: new Date(collection.created_at).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000, // Is less than 30 days old
+        }))
+
+        setCollections(transformedCollections)
+
+        // Set featured collections (first 5)
+        const featured = dbCollections.slice(0, 5).map((collection) => ({
+          name: collection.name,
+          href: `/kolekcje/${collection.slug}`,
+          image: collection.hero_image || "/diverse-fashion-collection.png",
+        }))
+
+        setFeaturedCollections(featured)
+        setIsLoadingCollections(false)
+      } catch (error) {
+        console.error("Error fetching collections:", error)
+        setIsLoadingCollections(false)
+      }
+    }
+
+    fetchCollections()
+  }, [])
+
+  // Fetch product categories from the database
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setIsLoadingCategories(true)
+        // Get categories that have products
+        const availableCategories = await getProductCategories()
+
+        // Map category slugs to display names and URLs
+        const categoryMap: Record<string, string> = {
+          all: "Wszystkie produkty",
+          koszulki: "Koszulki",
+          "bluzy-z-kapturem": "Bluzy z kapturem",
+          "bluzy-bez-kaptura": "Bluzy bez kaptura",
+          longsleeve: "Longsleeve",
+          koszule: "Koszule",
+          spodnie: "Spodnie",
+          szorty: "Szorty",
+          kurtki: "Kurtki",
+          akcesoria: "Akcesoria",
+        }
+
+        // Always include "all" category
+        const transformedCategories = [{ name: "Wszystkie produkty", href: "/sklep" }]
+
+        // Add other categories that have products
+        availableCategories.forEach((category) => {
+          if (category !== "all" && categoryMap[category]) {
+            transformedCategories.push({
+              name: categoryMap[category],
+              href: `/sklep/${category}`,
+            })
+          }
+        })
+
+        setCategories(transformedCategories)
+        setIsLoadingCategories(false)
+      } catch (error) {
+        console.error("Error fetching categories:", error)
+        // Fallback to showing all categories if there's an error
+        setCategories([
+          { name: "Wszystkie produkty", href: "/sklep" },
+          { name: "Koszulki", href: "/sklep/koszulki" },
+          { name: "Bluzy z kapturem", href: "/sklep/bluzy-z-kaptura" },
+          { name: "Bluzy bez kaptura", href: "/sklep/bluzy-bez-kaptura" },
+        ])
+        setIsLoadingCategories(false)
+      }
+    }
+
+    fetchCategories()
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -91,61 +188,6 @@ export function Navbar() {
   const closeMenu = () => {
     setIsShopMenuOpen(false)
   }
-
-  const categories = [
-    { name: "Wszystkie produkty", href: "/sklep" },
-    { name: "Koszulki", href: "/sklep/koszulki" },
-    { name: "Bluzy z kapturem", href: "/sklep/bluzy-z-kapturem" },
-    { name: "Bluzy bez kaptura", href: "/sklep/bluzy-bez-kaptura" },
-    { name: "Longsleeve", href: "/sklep/longsleeve" },
-    { name: "Koszule", href: "/sklep/koszule" },
-    { name: "Spodnie", href: "/sklep/spodnie" },
-    { name: "Szorty", href: "/sklep/szorty" },
-    { name: "Kurtki", href: "/sklep/kurtki" },
-    { name: "Akcesoria", href: "/sklep/akcesoria" },
-  ]
-
-  const collections = [
-    { name: "Fils de L'esthétique", href: "/kolekcje/fils-de-lesthetique", isNew: true },
-    { name: "Earth Day", href: "/kolekcje/earth-day", isNew: false },
-    { name: "Pass me the Love", href: "/kolekcje/pass-me-the-love", isNew: false },
-    { name: "L'art du Lori", href: "/kolekcje/lart-du-lori", isNew: false },
-    { name: "Metal Tag", href: "/kolekcje/metal-tag", isNew: false },
-    { name: "Summer Shades", href: "/kolekcje/summer-shades", isNew: false },
-    { name: "Pants Reinvented", href: "/kolekcje/pants-reinvented", isNew: false },
-    { name: "Blanks", href: "/kolekcje/blanks", isNew: false },
-    { name: "Daily Couture", href: "/kolekcje/daily-couture", isNew: false },
-    { name: "Chain Stitch", href: "/kolekcje/chain-stitch", isNew: false },
-    { name: "Starsze kolekcje", href: "/kolekcje/archive", isNew: false },
-  ]
-
-  const featuredCollections = [
-    {
-      name: "Fils de L'esthétique",
-      href: "/kolekcje/fils-de-lesthetique",
-      image: "/fashion-model-black-outfit.png",
-    },
-    {
-      name: "Earth Day",
-      href: "/kolekcje/earth-day",
-      image: "/placeholder.svg?key=chfzu",
-    },
-    {
-      name: "L'art du Lori",
-      href: "/kolekcje/lart-du-lori",
-      image: "/placeholder.svg?key=pia9f",
-    },
-    {
-      name: "Metal Tag",
-      href: "/kolekcje/metal-tag",
-      image: "/placeholder.svg?key=bdgza",
-    },
-    {
-      name: "Summer Shades",
-      href: "/kolekcje/summer-shades",
-      image: "/placeholder.svg?key=tf16v",
-    },
-  ]
 
   // Check if a category is active
   const isCategoryActive = (href: string) => {
@@ -328,78 +370,113 @@ export function Navbar() {
               {/* Categories */}
               <div className="w-1/6 pr-8">
                 <h3 className="font-medium text-gray-900 mb-4">Kategorie</h3>
-                <ul className="space-y-2">
-                  {categories.map((category) => (
-                    <li key={category.name}>
-                      <Link
-                        href={category.href}
-                        className={`text-sm hover:underline transition-colors duration-300 ${
-                          isCategoryActive(category.href) ? "text-black font-medium" : "text-gray-600 hover:text-black"
-                        }`}
-                        onClick={closeMenu}
-                      >
-                        {category.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                {isLoadingCategories ? (
+                  <div className="animate-pulse space-y-2">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    ))}
+                  </div>
+                ) : categories.length > 0 ? (
+                  <ul className="space-y-2">
+                    {categories.map((category) => (
+                      <li key={category.name}>
+                        <Link
+                          href={category.href}
+                          className={`text-sm hover:underline transition-colors duration-300 ${
+                            isCategoryActive(category.href)
+                              ? "text-black font-medium"
+                              : "text-gray-600 hover:text-black"
+                          }`}
+                          onClick={closeMenu}
+                        >
+                          {category.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">Brak dostępnych kategorii.</p>
+                )}
               </div>
 
               {/* Collections */}
               <div className="w-1/6 pr-8">
                 <h3 className="font-medium text-gray-900 mb-4">Kolekcje</h3>
-                <ul className="space-y-2">
-                  {collections.slice(0, 11).map((collection) => (
-                    <li key={collection.name} className="flex items-center">
-                      <Link
-                        href={collection.href}
-                        className={`text-sm hover:underline transition-colors duration-300 ${
-                          isCategoryActive(collection.href)
-                            ? "text-black font-medium"
-                            : "text-gray-600 hover:text-black"
-                        }`}
-                        onClick={closeMenu}
-                      >
-                        {collection.name}
-                      </Link>
-                      {collection.isNew && <span className="ml-2 text-xs text-red-500 font-medium">NEW!</span>}
-                    </li>
-                  ))}
-                </ul>
+                {isLoadingCollections ? (
+                  <div className="animate-pulse space-y-2">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    ))}
+                  </div>
+                ) : collections.length > 0 ? (
+                  <ul className="space-y-2">
+                    {collections.map((collection) => (
+                      <li key={collection.name} className="flex items-center">
+                        <Link
+                          href={`/kolekcje/${collection.slug}`}
+                          className={`text-sm hover:underline transition-colors duration-300 ${
+                            isCategoryActive(`/kolekcje/${collection.slug}`)
+                              ? "text-black font-medium"
+                              : "text-gray-600 hover:text-black"
+                          }`}
+                          onClick={closeMenu}
+                        >
+                          {collection.name}
+                        </Link>
+                        {collection.isNew && <span className="ml-2 text-xs text-red-500 font-medium">NEW!</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">W tej chwili nie ma żadnych kolekcji.</p>
+                )}
               </div>
 
               {/* Featured Collections with Images */}
               <div className="w-4/6">
-                <div className="grid grid-cols-5 gap-4">
-                  {featuredCollections.map((collection) => (
-                    <Link key={collection.name} href={collection.href} className="group relative" onClick={closeMenu}>
-                      <div className="aspect-[3/4] w-full overflow-hidden bg-gray-100 relative">
-                        <Image
-                          src={collection.image || "/placeholder.svg"}
-                          alt={collection.name}
-                          fill
-                          className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                        />
-                        <div
-                          className={`absolute inset-0 transition-opacity duration-300 ${
-                            isCategoryActive(collection.href)
-                              ? "bg-black bg-opacity-40"
-                              : "bg-black bg-opacity-20 group-hover:bg-opacity-30"
-                          }`}
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <h4
-                            className={`text-sm font-medium text-white ${
-                              isCategoryActive(collection.href) ? "underline" : ""
+                {isLoadingCollections ? (
+                  // Loading skeleton for featured collections
+                  <div className="grid grid-cols-5 gap-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="aspect-[3/4] bg-gray-200 animate-pulse rounded"></div>
+                    ))}
+                  </div>
+                ) : featuredCollections.length > 0 ? (
+                  <div className="grid grid-cols-5 gap-4">
+                    {featuredCollections.map((collection) => (
+                      <Link key={collection.name} href={collection.href} className="group relative" onClick={closeMenu}>
+                        <div className="aspect-[3/4] w-full overflow-hidden bg-gray-100 relative">
+                          <Image
+                            src={collection.image || "/placeholder.svg?height=400&width=300&query=fashion collection"}
+                            alt={collection.name}
+                            fill
+                            className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                          />
+                          <div
+                            className={`absolute inset-0 transition-opacity duration-300 ${
+                              isCategoryActive(collection.href)
+                                ? "bg-black bg-opacity-40"
+                                : "bg-black bg-opacity-20 group-hover:bg-opacity-30"
                             }`}
-                          >
-                            {collection.name}
-                          </h4>
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <h4
+                              className={`text-sm font-medium text-white ${
+                                isCategoryActive(collection.href) ? "underline" : ""
+                              }`}
+                            >
+                              {collection.name}
+                            </h4>
+                          </div>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">Brak kolekcji do wyświetlenia.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

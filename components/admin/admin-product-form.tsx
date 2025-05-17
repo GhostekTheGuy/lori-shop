@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Upload, X, Loader2, AlertTriangle, Info, ExternalLink } from "lucide-react"
+import { Upload, X, Loader2, Info } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -341,38 +341,14 @@ export function AdminProductForm({ product }: ProductFormProps) {
           <div className="space-y-4">
             <Label>Product Images</Label>
 
-            <Alert className="bg-amber-50 border-amber-200 mb-4">
-              <AlertTriangle className="h-4 w-4 text-amber-600 mr-2" />
-              <AlertDescription className="text-amber-800">
-                <p className="font-medium">Storage Setup Required</p>
-                <p className="mt-1">To upload product images, you need to create a storage bucket in Supabase:</p>
-                <ol className="list-decimal ml-5 mt-2 space-y-1">
-                  <li>
-                    Go to your{" "}
-                    <a
-                      href="https://app.supabase.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-700 hover:underline inline-flex items-center"
-                    >
-                      Supabase dashboard <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  </li>
-                  <li>Navigate to Storage in the sidebar</li>
-                  <li>Click "New Bucket" and name it "product-images"</li>
-                  <li>Enable "Public bucket" for the images to be accessible</li>
-                  <li>Under "Policies", add a policy that allows uploads (INSERT)</li>
-                </ol>
-                <div className="mt-4 flex items-center">
-                  <Checkbox
-                    id="skip-image-upload"
-                    checked={skipImageUpload}
-                    onCheckedChange={() => toggleSkipImageUpload()}
-                  />
-                  <Label htmlFor="skip-image-upload" className="ml-2 cursor-pointer">
-                    Skip image upload for now and continue with product creation
-                  </Label>
-                </div>
+            <Alert className="bg-green-50 border-green-200 mb-4">
+              <Info className="h-4 w-4 text-green-600 mr-2" />
+              <AlertDescription className="text-green-800">
+                <p className="font-medium">Przesyłanie zdjęć zostało zaktualizowane</p>
+                <p className="mt-1">
+                  Teraz używamy klucza serwisowego do przesyłania zdjęć, co pozwala ominąć ograniczenia polityk RLS.
+                  Spróbuj przesłać zdjęcie ponownie.
+                </p>
               </AlertDescription>
             </Alert>
 
@@ -421,13 +397,13 @@ export function AdminProductForm({ product }: ProductFormProps) {
               <Alert className="bg-blue-50 border-blue-200">
                 <Info className="h-4 w-4 text-blue-600 mr-2" />
                 <AlertDescription className="text-blue-800">
-                  You can continue without images and add them later.
+                  Możesz kontynuować bez zdjęć i dodać je później.
                 </AlertDescription>
               </Alert>
             )}
 
             <p className="text-sm text-gray-500">
-              You can upload up to 8 images. First image will be used as the product thumbnail.
+              Możesz przesłać do 8 zdjęć. Pierwsze zdjęcie będzie używane jako miniatura produktu.
             </p>
           </div>
         </TabsContent>

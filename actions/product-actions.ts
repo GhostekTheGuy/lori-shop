@@ -127,6 +127,10 @@ export async function getProductById(id: string) {
 export async function getProductsByCategory(category: string, limit?: number) {
   try {
     const supabase = getSupabase()
+    if (!supabase) {
+      console.error("Supabase client not initialized")
+      return []
+    }
 
     let query = supabase
       .from("products")
@@ -286,4 +290,34 @@ export async function deleteProduct(id: string) {
   revalidatePath("/")
 
   return { success: true }
+}
+
+// Get available product categories
+export async function getProductCategories(): Promise<string[]> {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not initialized")
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("category")
+    .eq("published", true)
+    .order("category", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching product categories:", error)
+    return []
+  }
+
+  // Extract unique categories
+  const categories = new Set<string>(["all"])
+  data.forEach((product) => {
+    if (product.category) {
+      categories.add(product.category)
+    }
+  })
+
+  return Array.from(categories)
 }
