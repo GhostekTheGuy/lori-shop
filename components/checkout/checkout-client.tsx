@@ -5,29 +5,17 @@ import { useRouter } from "next/navigation"
 import { useCart } from "@/context/cart-context"
 import { useAuth } from "@/context/auth-context"
 import { Elements } from "@stripe/react-stripe-js"
-import { loadStripe } from "@stripe/stripe-js"
 import { createOrder } from "@/actions/order-actions"
 import { AddressForm } from "@/components/checkout/address-form"
 import { PaymentForm } from "@/components/checkout/payment-form"
 import { CheckoutSummary } from "@/components/checkout/checkout-summary"
 import { Navbar } from "@/components/navbar"
 import { CartDrawer } from "@/components/cart-drawer"
-import { Loader2, CreditCard, Truck } from "lucide-react"
+import { Loader2, CreditCard, Truck, AlertTriangle } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-
-// Initialize Stripe on the client side only
-let stripePromise: Promise<any> | null = null
-
-const getStripe = () => {
-  if (!stripePromise && typeof window !== "undefined") {
-    const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-    if (key) {
-      stripePromise = loadStripe(key)
-    }
-  }
-  return stripePromise
-}
+import { getStripePublic } from "@/lib/stripe"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function CheckoutClient() {
   const { items, subtotal, clearCart } = useCart()
@@ -47,6 +35,18 @@ export default function CheckoutClient() {
   })
   const [currentStep, setCurrentStep] = useState<"address" | "payment">("address")
   const [orderId, setOrderId] = useState<string | null>(null)
+  const [isPreviewEnvironment, setIsPreviewEnvironment] = useState(false)
+
+  // Detect if we're in a preview environment
+  useEffect(() => {
+    // Check if we're in a preview environment (iframe or restricted environment)
+    const isPreview =
+      typeof window !== "undefined" &&
+      (window.self !== window.top || // In iframe
+        window.location.hostname.includes("vercel.app")) // Vercel preview
+
+    setIsPreviewEnvironment(isPreview)
+  }, [])
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -72,6 +72,7 @@ export default function CheckoutClient() {
         shippingAddress: formData,
         total: subtotal,
         paymentMethod: paymentMethod,
+        isPreviewEnvironment: isPreviewEnvironment,
       })
 
       if (!result.success) {
@@ -140,10 +141,19 @@ export default function CheckoutClient() {
       <main className="container mx-auto px-4 pt-24 pb-16">
         <h1 className="text-3xl font-bold mb-8">Zamówienie</h1>
 
+        {isPreviewEnvironment && (
+          <Alert variant="warning" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Wykryto środowisko podglądu. Niektóre funkcje płatności mogą być ograniczone.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             {currentStep === "address" ? (
-              <div>
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h2 className="text-xl font-semibold mb-4">Dane dostawy</h2>
                 <p className="text-gray-600 mb-6">Wprowadź dane potrzebne do realizacji zamówienia.</p>
 
@@ -151,7 +161,7 @@ export default function CheckoutClient() {
                   <TabsList className="grid w-full grid-cols-2 mb-6">
                     <TabsTrigger value="stripe" className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
-                      Karta płatnicza
+                      Płatność online
                     </TabsTrigger>
                     <TabsTrigger value="cash_on_delivery" className="flex items-center gap-2">
                       <Truck className="h-4 w-4" />
@@ -162,11 +172,23 @@ export default function CheckoutClient() {
 
                 <AddressForm onSubmitAddress={handleCheckout} isProcessing={isProcessing} />
               </div>
-            ) : clientSecret && getStripe() ? (
-              <Elements stripe={getStripe()} options={{ clientSecret }}>
+            ) : clientSecret ? (
+              <Elements
+                stripe={getStripePublic()}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: "stripe",
+                    variables: {
+                      colorPrimary: "#000000",
+                    },
+                  },
+                  locale: "pl",
+                }}
+              >
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                   <h2 className="text-xl font-semibold mb-4">Płatność</h2>
-                  <p className="text-gray-600 mb-6">Dokończ zamówienie, podając dane karty płatniczej.</p>
+                  <p className="text-gray-600 mb-6">Dokończ zamówienie, wybierając metodę płatności.</p>
                   <PaymentForm onSuccess={handlePaymentSuccess} />
                 </div>
               </Elements>

@@ -20,6 +20,7 @@ interface OrderData {
   }
   total: number
   paymentMethod?: "stripe" | "cash_on_delivery"
+  isPreviewEnvironment?: boolean
 }
 
 export async function createOrder(data: OrderData) {
@@ -27,15 +28,18 @@ export async function createOrder(data: OrderData) {
     const supabase = getSupabase()
     const orderId = uuidv4()
 
-    // Create order in database
+    // Determine payment status based on payment method
+    const paymentStatus = data.paymentMethod === "cash_on_delivery" ? "cash_on_delivery" : "pending"
+
+    // Create order in database - without using payment_method column
     const { error: orderError } = await supabase.from("orders").insert({
       id: orderId,
       user_id: data.userId,
       total: data.total,
       shipping_address: data.shippingAddress,
-      payment_status: "pending",
+      payment_status: paymentStatus,
       status: "pending",
-      payment_method: data.paymentMethod || "stripe",
+      // Removed payment_method field as it doesn't exist in the schema
     })
 
     if (orderError) {
@@ -62,24 +66,36 @@ export async function createOrder(data: OrderData) {
 
     // If payment method is stripe, create payment intent
     let clientSecret = null
-    if (!data.paymentMethod || data.paymentMethod === "stripe") {
-      const paymentIntent = await createPaymentIntent({
-        amount: Math.round(data.total * 100), // Convert to cents
-        currency: "pln",
-        metadata: {
-          orderId,
-          userId: data.userId,
-        },
-      })
+    let paymentIntentId = null
 
-      if (!paymentIntent || !paymentIntent.client_secret) {
+    if (!data.paymentMethod || data.paymentMethod === "stripe") {
+      try {
+        // For preview environments, limit payment methods to card only to avoid redirect issues
+        const paymentMethodTypes = data.isPreviewEnvironment ? ["card"] : ["card", "p24"]
+
+        const paymentIntent = await createPaymentIntent({
+          amount: Math.round(data.total * 100), // Convert to cents
+          currency: "pln",
+          metadata: {
+            orderId,
+            userId: data.userId,
+          },
+          payment_method_types: paymentMethodTypes,
+        })
+
+        if (!paymentIntent || !paymentIntent.client_secret) {
+          throw new Error("Failed to create payment intent")
+        }
+
+        clientSecret = paymentIntent.client_secret
+        paymentIntentId = paymentIntent.id
+
+        // Update order with payment intent ID
+        await supabase.from("orders").update({ payment_intent: paymentIntentId }).eq("id", orderId)
+      } catch (error) {
+        console.error("Error creating payment intent:", error)
         return { success: false, error: "Failed to create payment intent" }
       }
-
-      // Update order with payment intent ID
-      await supabase.from("orders").update({ payment_intent: paymentIntent.id }).eq("id", orderId)
-
-      clientSecret = paymentIntent.client_secret
     }
 
     revalidatePath("/checkout")
@@ -90,6 +106,7 @@ export async function createOrder(data: OrderData) {
       orderId,
       clientSecret,
       paymentMethod: data.paymentMethod || "stripe",
+      isPreviewEnvironment: data.isPreviewEnvironment,
     }
   } catch (error) {
     console.error("Error in createOrder:", error)
@@ -97,6 +114,7 @@ export async function createOrder(data: OrderData) {
   }
 }
 
+// Pozostałe funkcje pozostają bez zmian
 export async function getOrderById(orderId: string) {
   try {
     const supabase = getSupabase()
