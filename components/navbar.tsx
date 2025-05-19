@@ -328,8 +328,10 @@ export function Navbar() {
 
             {/* Right icons */}
             <div className="flex items-center space-x-6">
-              <Link
-                href="/instagram"
+              <a
+                href="https://instagram.com/lori_store" // Zmień na właściwy adres Instagram
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`hidden md:flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
                   shouldBeWhite ? "text-gray-800" : "text-white"
                 } hover:opacity-80`}
@@ -337,9 +339,11 @@ export function Navbar() {
                 <span className={iconClass}>
                   <Instagram size={iconSize} strokeWidth={1.5} />
                 </span>
-              </Link>
-              <Link
-                href="/facebook"
+              </a>
+              <a
+                href="https://facebook.com/lori.store" // Zmień na właściwy adres Facebook
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`hidden md:flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
                   shouldBeWhite ? "text-gray-800" : "text-white"
                 } hover:opacity-80`}
@@ -347,7 +351,7 @@ export function Navbar() {
                 <span className={iconClass}>
                   <Facebook size={iconSize} strokeWidth={1.5} />
                 </span>
-              </Link>
+              </a>
 
               {/* User account icon with dropdown */}
               <div ref={userLinkRef} className="relative" onMouseEnter={openUserMenu} onMouseLeave={closeUserMenu}>

@@ -5,6 +5,8 @@ export default async function AdminDebugPage() {
   let userInfo = "Brak danych użytkownika"
   let adminStatus = "Nieznany"
   let error = null
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "Nie ustawiono"
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "Ustawiono" : "Nie ustawiono"
 
   try {
     const supabase = getSupabase()
@@ -30,9 +32,37 @@ export default async function AdminDebugPage() {
         userInfo = `Błąd podczas pobierania danych użytkownika: ${userError.message}`
       } else if (!userData) {
         userInfo = "Nie znaleziono użytkownika w bazie danych"
+
+        // Spróbuj utworzyć użytkownika
+        const { error: insertError } = await supabase.from("users").insert({
+          id: sessionData.session.user.id,
+          email: sessionData.session.user.email,
+          is_admin: true,
+        })
+
+        if (insertError) {
+          userInfo += `. Błąd podczas tworzenia użytkownika: ${insertError.message}`
+        } else {
+          userInfo += ". Utworzono nowego użytkownika z uprawnieniami administratora."
+        }
       } else {
         userInfo = JSON.stringify(userData, null, 2)
         adminStatus = userData.is_admin ? "Administrator" : "Zwykły użytkownik"
+
+        // Jeśli użytkownik nie jest administratorem, nadaj mu uprawnienia
+        if (!userData.is_admin) {
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({ is_admin: true })
+            .eq("id", sessionData.session.user.id)
+
+          if (updateError) {
+            userInfo += `. Błąd podczas nadawania uprawnień: ${updateError.message}`
+          } else {
+            userInfo += ". Nadano uprawnienia administratora."
+            adminStatus = "Administrator (po aktualizacji)"
+          }
+        }
       }
     }
   } catch (e) {
@@ -52,6 +82,16 @@ export default async function AdminDebugPage() {
 
       <div className="grid gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Zmienne środowiskowe</h2>
+          <p>
+            <strong>NEXT_PUBLIC_SUPABASE_URL:</strong> {supabaseUrl}
+          </p>
+          <p>
+            <strong>NEXT_PUBLIC_SUPABASE_ANON_KEY:</strong> {supabaseAnonKey}
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Informacje o sesji</h2>
           <pre className="bg-gray-100 p-4 rounded overflow-auto">{sessionInfo}</pre>
         </div>
@@ -65,7 +105,7 @@ export default async function AdminDebugPage() {
           <h2 className="text-xl font-semibold mb-4">Status administratora</h2>
           <p
             className={`text-lg font-medium ${
-              adminStatus === "Administrator"
+              adminStatus === "Administrator" || adminStatus === "Administrator (po aktualizacji)"
                 ? "text-green-600"
                 : adminStatus === "Zwykły użytkownik"
                   ? "text-red-600"
@@ -80,15 +120,32 @@ export default async function AdminDebugPage() {
           <h2 className="text-xl font-semibold mb-4">Rozwiązanie problemu</h2>
           <p className="mb-4">Jeśli masz problem z dostępem do panelu administratora, wykonaj następujące kroki:</p>
           <ol className="list-decimal list-inside space-y-2">
-            <li>Upewnij się, że jesteś zalogowany na konto z uprawnieniami administratora</li>
+            <li>Upewnij się, że jesteś zalogowany (powyżej powinny być informacje o sesji)</li>
             <li>
               Sprawdź, czy Twoje konto ma ustawioną flagę <code>is_admin</code> na <code>true</code> w bazie danych
             </li>
-            <li>Jeśli używasz konta hubciolandos@gmail.com, upewnij się, że jest ono poprawnie skonfigurowane</li>
-            <li>Wyloguj się i zaloguj ponownie, aby odświeżyć sesję</li>
-            <li>Wyczyść pamięć podręczną przeglądarki i spróbuj ponownie</li>
+            <li>Jeśli nie, ta strona powinna automatycznie nadać Ci uprawnienia administratora</li>
+            <li>
+              Po sprawdzeniu powyższych informacji, spróbuj ponownie przejść do{" "}
+              <a href="/admin" className="text-blue-600 hover:underline">
+                panelu administratora
+              </a>
+            </li>
+            <li>Jeśli nadal masz problemy, wyloguj się i zaloguj ponownie</li>
           </ol>
         </div>
+      </div>
+
+      <div className="mt-6 flex space-x-4">
+        <a href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded">
+          Przejdź do panelu administratora
+        </a>
+        <a href="/login" className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded">
+          Zaloguj się ponownie
+        </a>
+        <a href="/" className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded">
+          Powrót do strony głównej
+        </a>
       </div>
     </div>
   )

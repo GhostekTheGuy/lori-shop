@@ -20,45 +20,38 @@ export default async function AdminFixPage() {
       const userEmail = sessionData.session.user.email
       const userId = sessionData.session.user.id
 
-      // Sprawdź, czy to hubciolandos@gmail.com
-      const isHubciolandos = userEmail === "hubciolandos@gmail.com"
+      // Pobierz dane użytkownika
+      const { data: existingUser, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single()
 
-      if (!isHubciolandos) {
-        error = "Ta strona jest przeznaczona tylko dla użytkownika hubciolandos@gmail.com"
+      if (userError && userError.code !== "PGRST116") {
+        // PGRST116 = not found
+        error = `Błąd podczas pobierania danych użytkownika: ${userError.message}`
       } else {
-        // Pobierz dane użytkownika
-        const { data: existingUser, error: userError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", userId)
-          .single()
+        // Aktualizuj lub dodaj użytkownika z uprawnieniami administratora
+        const { data, error: upsertError } = await supabase.from("users").upsert(
+          {
+            id: userId,
+            email: userEmail,
+            is_admin: true,
+            // Dodaj inne pola, jeśli są wymagane
+            first_name: existingUser?.first_name || "Admin",
+            last_name: existingUser?.last_name || "User",
+          },
+          { onConflict: "id", returning: "representation" },
+        )
 
-        if (userError && userError.code !== "PGRST116") {
-          // PGRST116 = not found
-          error = `Błąd podczas pobierania danych użytkownika: ${userError.message}`
+        if (upsertError) {
+          error = `Błąd podczas aktualizacji uprawnień: ${upsertError.message}`
         } else {
-          // Aktualizuj lub dodaj użytkownika z uprawnieniami administratora
-          const { data, error: upsertError } = await supabase.from("users").upsert(
-            {
-              id: userId,
-              email: userEmail,
-              is_admin: true,
-              // Dodaj inne pola, jeśli są wymagane
-              first_name: existingUser?.first_name || "Admin",
-              last_name: existingUser?.last_name || "User",
-            },
-            { onConflict: "id", returning: "representation" },
-          )
-
-          if (upsertError) {
-            error = `Błąd podczas aktualizacji uprawnień: ${upsertError.message}`
-          } else {
-            success = true
-            userData = data[0]
-            message = existingUser
-              ? "Uprawnienia administratora zostały zaktualizowane"
-              : "Konto administratora zostało utworzone"
-          }
+          success = true
+          userData = data[0]
+          message = existingUser
+            ? "Uprawnienia administratora zostały zaktualizowane"
+            : "Konto administratora zostało utworzone"
         }
       }
     }
@@ -97,6 +90,9 @@ export default async function AdminFixPage() {
       <div className="mt-6 flex gap-4">
         <a href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded">
           Przejdź do panelu administratora
+        </a>
+        <a href="/admin-debug" className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded">
+          Diagnostyka
         </a>
         <a href="/" className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded">
           Powrót do strony głównej
