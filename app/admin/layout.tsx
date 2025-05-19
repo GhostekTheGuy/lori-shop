@@ -18,40 +18,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       return redirect("/login?redirect=/admin")
     }
 
-    console.log("Zalogowany użytkownik:", session.user.email)
+    console.log("Sprawdzanie uprawnień administratora dla:", session.user.email)
 
-    // Sprawdź, czy to hubciolandos@gmail.com - specjalny przypadek
-    if (session.user.email === "hubciolandos@gmail.com") {
-      console.log("Użytkownik hubciolandos@gmail.com - automatyczny dostęp")
-
-      try {
-        // Automatycznie nadaj uprawnienia administratora
-        await supabase.from("users").upsert(
-          {
-            id: session.user.id,
-            email: session.user.email,
-            is_admin: true,
-          },
-          { onConflict: "id" },
-        )
-      } catch (error) {
-        console.error("Błąd podczas nadawania uprawnień administratora:", error)
-        // Kontynuuj mimo błędu - hubciolandos@gmail.com zawsze ma dostęp
-      }
-
-      // Renderuj layout administratora dla hubciolandos@gmail.com
-      return (
-        <div className="min-h-screen bg-gray-50">
-          <AdminHeader />
-          <div className="flex">
-            <AdminSidebar />
-            <main className="flex-1 p-6 overflow-auto">{children}</main>
-          </div>
-        </div>
-      )
-    }
-
-    // Dla innych użytkowników sprawdź uprawnienia administratora w bazie danych
+    // Sprawdź uprawnienia administratora w bazie danych
     try {
       const { data: userData, error } = await supabase
         .from("users")
@@ -64,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         return redirect("/")
       }
 
-      if (!userData || !userData.is_admin) {
+      if (!userData || userData.is_admin !== true) {
         console.log("Użytkownik nie ma uprawnień administratora")
         return redirect("/")
       }
