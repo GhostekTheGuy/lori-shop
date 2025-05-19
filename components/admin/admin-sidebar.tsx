@@ -2,20 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  Users,
-  Settings,
-  Package,
-  Tag,
-  FileText,
-  BarChart,
-  LogOut,
-  Layers,
-} from "lucide-react"
+import { LayoutDashboard, ShoppingBag, Users, Package, Tag, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// Uproszczona lista podstron - tylko te, które są w pełni zintegrowane z bazą danych
 const sidebarItems = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
@@ -23,9 +13,6 @@ const sidebarItems = [
   { name: "Categories", href: "/admin/categories", icon: Tag },
   { name: "Orders", href: "/admin/orders", icon: Package },
   { name: "Customers", href: "/admin/customers", icon: Users },
-  { name: "Analytics", href: "/admin/analytics", icon: BarChart },
-  { name: "Content", href: "/admin/content", icon: FileText },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
 
 export function AdminSidebar() {
@@ -60,7 +47,7 @@ export function AdminSidebar() {
             href="/"
             className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-black hover:bg-gray-50 transition-colors"
           >
-            <LogOut className="mr-3 h-5 w-5" />
+            <span className="mr-3 h-5 w-5 flex items-center justify-center">←</span>
             Back to Store
           </Link>
         </div>

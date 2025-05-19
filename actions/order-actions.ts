@@ -51,6 +51,11 @@ export interface Order {
   notes?: string
   order_items?: OrderItem[]
   items_count?: number
+  users?: {
+    email: string
+    first_name?: string
+    last_name?: string
+  }
 }
 
 export async function createOrder(data: OrderData) {
@@ -289,6 +294,33 @@ export async function getOrders() {
   return data
 }
 
+// Get recent orders for admin dashboard
+export async function getRecentOrders(limit = 5) {
+  try {
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error("Supabase client not initialized")
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*, users(email, first_name, last_name)")
+      .order("created_at", { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      console.error("Error fetching recent orders:", error)
+      return []
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error in getRecentOrders:", error)
+    return []
+  }
+}
+
 // Update order status
 export async function updateOrderStatus(id: string, status: string) {
   const supabase = getSupabase()
@@ -300,6 +332,28 @@ export async function updateOrderStatus(id: string, status: string) {
 
   if (error) {
     console.error("Error updating order status:", error)
+    return { success: false, error: error.message }
+  }
+
+  // Revalidate the orders page
+  revalidatePath("/admin/orders")
+  revalidatePath(`/admin/orders/${id}`)
+  revalidatePath("/account")
+
+  return { success: true }
+}
+
+// Update payment status
+export async function updatePaymentStatus(id: string, paymentStatus: string) {
+  const supabase = getSupabase()
+  if (!supabase) {
+    return { success: false, error: "Supabase client not initialized" }
+  }
+
+  const { error } = await supabase.from("orders").update({ payment_status: paymentStatus }).eq("id", id)
+
+  if (error) {
+    console.error("Error updating payment status:", error)
     return { success: false, error: error.message }
   }
 
@@ -367,6 +421,76 @@ export async function getUserOrderStats(userId: string) {
     }
   } catch (error) {
     console.error("Error in getUserOrderStats:", error)
+    return null
+  }
+}
+
+// Get order statistics for admin dashboard
+export async function getOrderStats() {
+  try {
+    const supabase = getSupabase()
+
+    // Get total orders count
+    const { count: totalOrders, error: countError } = await supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+
+    if (countError) {
+      console.error("Error fetching order count:", countError)
+      return null
+    }
+
+    // Get total revenue
+    const { data: totalRevenueData, error: revenueError } = await supabase
+      .from("orders")
+      .select("total")
+      .eq("payment_status", "paid")
+
+    if (revenueError) {
+      console.error("Error fetching total revenue:", revenueError)
+      return null
+    }
+
+    const totalRevenue = totalRevenueData.reduce((sum, order) => sum + order.total, 0)
+
+    // Get pending orders count
+    const { count: pendingOrders, error: pendingError } = await supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+
+    if (pendingError) {
+      console.error("Error fetching pending orders:", pendingError)
+      return null
+    }
+
+    // Get recent orders
+    const { data: recentOrders, error: recentOrdersError } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        created_at,
+        total,
+        status,
+        payment_status,
+        users(email)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    if (recentOrdersError) {
+      console.error("Error fetching recent orders:", recentOrdersError)
+      return null
+    }
+
+    return {
+      totalOrders,
+      totalRevenue,
+      pendingOrders,
+      recentOrders,
+    }
+  } catch (error) {
+    console.error("Error in getOrderStats:", error)
     return null
   }
 }
