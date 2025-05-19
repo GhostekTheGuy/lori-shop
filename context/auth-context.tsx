@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user?.id) {
-        checkIfAdmin(session.user.id)
+        checkIfAdmin(session.user)
       }
       setIsLoading(false)
     })
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user?.id) {
-        checkIfAdmin(session.user.id)
+        checkIfAdmin(session.user)
       }
       setIsLoading(false)
     })
@@ -63,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Check if user is an admin
-  const checkIfAdmin = async (userId: string | undefined) => {
-    if (!userId) {
+  const checkIfAdmin = async (user: User | null) => {
+    if (!user || !user.id) {
       setIsAdmin(false)
       return
     }
@@ -76,7 +76,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { data, error } = await supabase.from("users").select("is_admin").eq("id", userId).single()
+      // Sprawdź, czy użytkownik ma email hubciolandos@gmail.com
+      const isHubciolandos = user.email === "hubciolandos@gmail.com"
+
+      // Jeśli to hubciolandos@gmail.com, automatycznie nadaj uprawnienia administratora
+      if (isHubciolandos) {
+        // Sprawdź, czy użytkownik już ma flagę is_admin
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("is_admin")
+          .eq("id", user.id)
+          .single()
+
+        // Jeśli użytkownik nie ma flagi is_admin lub ma ją ustawioną na false, zaktualizuj ją
+        if (!userError && (!userData || userData.is_admin !== true)) {
+          await supabase.from("users").upsert(
+            {
+              id: user.id,
+              email: user.email,
+              is_admin: true,
+            },
+            { onConflict: "id" },
+          )
+        }
+
+        // Zawsze ustaw isAdmin na true dla hubciolandos@gmail.com
+        setIsAdmin(true)
+        return
+      }
+
+      // Dla innych użytkowników sprawdź flagę is_admin w bazie danych
+      const { data, error } = await supabase.from("users").select("is_admin").eq("id", user.id).single()
 
       if (error) {
         console.error("Error checking admin status:", error)
@@ -111,10 +141,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // If signup is successful, create a user record in the users table
     if (!error && data.user) {
+      // Sprawdź, czy to hubciolandos@gmail.com
+      const isAdmin = data.user.email === "hubciolandos@gmail.com"
+
       await supabase.from("users").insert({
         id: data.user.id,
-        email: email,
-        is_admin: false,
+        email: data.user.email,
+        is_admin: isAdmin, // Automatycznie ustaw is_admin na true dla hubciolandos@gmail.com
       })
     }
 

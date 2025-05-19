@@ -3,7 +3,18 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Instagram, Facebook, User, Search, ShoppingBag, LogOut, Settings, Package, Heart } from "lucide-react"
+import {
+  Instagram,
+  Facebook,
+  User,
+  Search,
+  ShoppingBag,
+  LogOut,
+  Settings,
+  Package,
+  Heart,
+  ShieldCheck,
+} from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useCart } from "@/context/cart-context"
 import { useAuth } from "@/context/auth-context"
@@ -38,6 +49,9 @@ export function Navbar() {
   const isCollectionPage = pathname.startsWith("/kolekcje")
   const { openCart, totalItems } = useCart()
   const { user, signOut } = useAuth()
+
+  // Check if user is admin (has email hubciolandos@gmail.com)
+  const isAdmin = user?.email === "hubciolandos@gmail.com"
 
   // Determine if navbar should be white
   const shouldBeWhite = isScrolled || !isHomePage || isShopMenuOpen
@@ -396,6 +410,18 @@ export function Navbar() {
                           <Settings className="mr-2 h-4 w-4" />
                           Ustawienia
                         </Link>
+
+                        {/* Admin panel link - only visible for admin user */}
+                        {isAdmin && (
+                          <Link
+                            href="/admin"
+                            className="flex items-center px-4 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50"
+                            onClick={closeUserMenu}
+                          >
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                            Panel administratora
+                          </Link>
+                        )}
                       </div>
                       <div className="py-1 border-t border-gray-100">
                         <button
@@ -488,6 +514,18 @@ export function Navbar() {
                 >
                   Kontakt
                 </Link>
+
+                {/* Admin link in mobile menu - only for admin */}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className={`text-sm font-medium text-indigo-600 hover:opacity-80 ${
+                      pathname.startsWith("/admin") ? "font-semibold" : ""
+                    }`}
+                  >
+                    Panel administratora
+                  </Link>
+                )}
               </nav>
             </div>
           )}
