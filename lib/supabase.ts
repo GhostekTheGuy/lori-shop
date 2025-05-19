@@ -25,7 +25,14 @@ export function getSupabase(useServiceRole = false) {
     return supabaseAdminClient
   } else {
     if (!supabaseClient) {
-      supabaseClient = createClient(supabaseUrl, supabaseKey)
+      supabaseClient = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: true,
+          storageKey: "phenotype-store-auth",
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
     }
     return supabaseClient
   }

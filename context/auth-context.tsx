@@ -36,25 +36,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSupabaseInitialized(true)
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user?.id) {
-        checkIfAdmin(session.user)
+    const initializeAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error("Error getting session:", error)
+          // Jeśli wystąpił błąd z tokenem odświeżania, wyczyść sesję
+          if (error.message?.includes("refresh_token_not_found")) {
+            await supabase.auth.signOut()
+            setSession(null)
+            setUser(null)
+            setIsAdmin(false)
+          }
+          setIsLoading(false)
+          return
+        }
+
+        setSession(data.session)
+        setUser(data.session?.user ?? null)
+
+        if (data.session?.user?.id) {
+          await checkIfAdmin(data.session.user)
+        }
+      } catch (err) {
+        console.error("Unexpected error during auth initialization:", err)
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
-    })
+    }
+
+    initializeAuth()
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user?.id) {
-        checkIfAdmin(session.user)
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("Auth state changed:", event)
+
+      try {
+        setSession(newSession)
+        setUser(newSession?.user ?? null)
+
+        if (newSession?.user?.id) {
+          await checkIfAdmin(newSession.user)
+        } else {
+          setIsAdmin(false)
+        }
+      } catch (err) {
+        console.error("Error in auth state change handler:", err)
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     })
 
     return () => {
@@ -98,8 +131,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: { message: "Supabase client not initialized" } }
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (!error && data?.user) {
+        // Sprawdź, czy użytkownik istnieje w tabeli users
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", data.user.id)
+          .single()
+
+        // Jeśli użytkownik nie istnieje w tabeli users, dodaj go
+        if (userError && userError.code === "PGRST116") {
+          await supabase.from("users").insert({
+            id: data.user.id,
+            email: data.user.email,
+            is_admin: false,
+          })
+        }
+      }
+
+      return { error }
+    } catch (err: any) {
+      console.error("Error during sign in:", err)
+      return { error: err }
+    }
   }
 
   const signUp = async (email: string, password: string) => {
@@ -108,24 +165,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: { message: "Supabase client not initialized" }, data: null }
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password })
 
-    // If signup is successful, create a user record in the users table
-    if (!error && data.user) {
-      await supabase.from("users").insert({
-        id: data.user.id,
-        email: data.user.email,
-        is_admin: false, // Domyślnie użytkownik nie jest administratorem
-      })
+      // If signup is successful, create a user record in the users table
+      if (!error && data.user) {
+        await supabase.from("users").insert({
+          id: data.user.id,
+          email: data.user.email,
+          is_admin: false, // Domyślnie użytkownik nie jest administratorem
+        })
+      }
+
+      return { data, error }
+    } catch (err: any) {
+      console.error("Error during sign up:", err)
+      return { error: err, data: null }
     }
-
-    return { data, error }
   }
 
   const signOut = async () => {
     const supabase = getSupabase()
     if (supabase) {
-      await supabase.auth.signOut()
+      try {
+        await supabase.auth.signOut()
+        // Wyczyść stan po wylogowaniu
+        setUser(null)
+        setSession(null)
+        setIsAdmin(false)
+      } catch (err) {
+        console.error("Error during sign out:", err)
+      }
     }
   }
 
@@ -135,10 +205,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: { message: "Supabase client not initialized" } }
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-    return { error }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      return { error }
+    } catch (err: any) {
+      console.error("Error during password reset:", err)
+      return { error: err }
+    }
   }
 
   // If Supabase is not initialized, provide a minimal context

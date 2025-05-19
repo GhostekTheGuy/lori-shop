@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/context/cart-context"
 import { AuthProvider } from "@/context/auth-context"
 import { EnvStatus } from "@/components/env-status"
+import { AuthErrorHandler } from "@/components/auth-error-handler"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <CartProvider>
+              <AuthErrorHandler />
               {children}
               <EnvStatus />
             </CartProvider>
