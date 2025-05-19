@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Instagram, Facebook, User, Search, ShoppingBag } from "lucide-react"
+import { Instagram, Facebook, User, Search, ShoppingBag, LogOut, Settings, Package, Heart } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useCart } from "@/context/cart-context"
+import { useAuth } from "@/context/auth-context"
 import { SearchDialog } from "@/components/search-dialog"
 import { getPublishedCollections } from "@/actions/collection-actions"
 import { getProductCategories } from "@/actions/product-actions"
@@ -15,6 +16,7 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isShopMenuOpen, setIsShopMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [collections, setCollections] = useState<Array<{ name: string; slug: string; isNew?: boolean }>>([])
   const [featuredCollections, setFeaturedCollections] = useState<Array<{ name: string; href: string; image: string }>>(
     [],
@@ -25,13 +27,17 @@ export function Navbar() {
 
   const shopMenuRef = useRef<HTMLDivElement>(null)
   const shopLinkRef = useRef<HTMLAnchorElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+  const userLinkRef = useRef<HTMLDivElement>(null)
   const menuTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const userMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const pathname = usePathname()
   const isHomePage = pathname === "/"
   const isShopPage = pathname.startsWith("/sklep")
   const isCollectionPage = pathname.startsWith("/kolekcje")
   const { openCart, totalItems } = useCart()
+  const { user, signOut } = useAuth()
 
   // Determine if navbar should be white
   const shouldBeWhite = isScrolled || !isHomePage || isShopMenuOpen
@@ -159,6 +165,15 @@ export function Navbar() {
       ) {
         closeMenu()
       }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node) &&
+        userLinkRef.current &&
+        !userLinkRef.current.contains(event.target as Node)
+      ) {
+        closeUserMenu()
+      }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
@@ -172,6 +187,9 @@ export function Navbar() {
     return () => {
       if (menuTimeoutRef.current) {
         clearTimeout(menuTimeoutRef.current)
+      }
+      if (userMenuTimeoutRef.current) {
+        clearTimeout(userMenuTimeoutRef.current)
       }
     }
   }, [])
@@ -189,10 +207,34 @@ export function Navbar() {
     setIsShopMenuOpen(false)
   }
 
+  const openUserMenu = () => {
+    if (userMenuTimeoutRef.current) {
+      clearTimeout(userMenuTimeoutRef.current)
+      userMenuTimeoutRef.current = null
+    }
+    setIsUserMenuOpen(true)
+  }
+
+  const closeUserMenu = () => {
+    userMenuTimeoutRef.current = setTimeout(() => {
+      setIsUserMenuOpen(false)
+    }, 200)
+  }
+
   // Check if a category is active
   const isCategoryActive = (href: string) => {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    await signOut()
+    closeUserMenu()
+  }
+
+  // Common icon size and style for consistency
+  const iconSize = 20
+  const iconClass = `flex items-center justify-center w-[20px] h-[20px]`
 
   return (
     <>
@@ -271,47 +313,144 @@ export function Navbar() {
             </div>
 
             {/* Right icons */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-6">
               <Link
                 href="/instagram"
-                className={`hidden md:block transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
+                className={`hidden md:flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
+                  shouldBeWhite ? "text-gray-800" : "text-white"
+                } hover:opacity-80`}
               >
-                <Instagram size={20} />
+                <span className={iconClass}>
+                  <Instagram size={iconSize} strokeWidth={1.5} />
+                </span>
               </Link>
               <Link
                 href="/facebook"
-                className={`hidden md:block transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
+                className={`hidden md:flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
+                  shouldBeWhite ? "text-gray-800" : "text-white"
+                } hover:opacity-80`}
               >
-                <Facebook size={20} />
+                <span className={iconClass}>
+                  <Facebook size={iconSize} strokeWidth={1.5} />
+                </span>
               </Link>
-              {/* Admin panel icon - hidden */}
-              {/* 
-              <Link
-                href="/admin"
-                className={`transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
-              >
-                <Settings size={20} />
-              </Link>
-              */}
-              <Link
-                href="/account"
-                className={`transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
-              >
-                <User size={20} />
-              </Link>
+
+              {/* User account icon with dropdown */}
+              <div ref={userLinkRef} className="relative" onMouseEnter={openUserMenu} onMouseLeave={closeUserMenu}>
+                <button
+                  className={`flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
+                    shouldBeWhite ? "text-gray-800" : "text-white"
+                  } hover:opacity-80`}
+                  aria-label="Konto użytkownika"
+                >
+                  <span className={iconClass}>
+                    <User size={iconSize} strokeWidth={1.5} />
+                  </span>
+                </button>
+
+                {/* User dropdown menu */}
+                <div
+                  ref={userMenuRef}
+                  className={`absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-50 transition-all duration-200 ${
+                    isUserMenuOpen ? "opacity-100 transform-none" : "opacity-0 -translate-y-2 pointer-events-none"
+                  }`}
+                  onMouseEnter={openUserMenu}
+                  onMouseLeave={closeUserMenu}
+                >
+                  {user ? (
+                    <>
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">{user.user_metadata?.name || user.email}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <div className="py-1">
+                        <Link
+                          href="/account"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={closeUserMenu}
+                        >
+                          <User className="mr-2 h-4 w-4" />
+                          Moje konto
+                        </Link>
+                        <Link
+                          href="/account?tab=orders"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={closeUserMenu}
+                        >
+                          <Package className="mr-2 h-4 w-4" />
+                          Zamówienia
+                        </Link>
+                        <Link
+                          href="/account?tab=favorites"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={closeUserMenu}
+                        >
+                          <Heart className="mr-2 h-4 w-4" />
+                          Ulubione
+                        </Link>
+                        <Link
+                          href="/account?tab=settings"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={closeUserMenu}
+                        >
+                          <Settings className="mr-2 h-4 w-4" />
+                          Ustawienia
+                        </Link>
+                      </div>
+                      <div className="py-1 border-t border-gray-100">
+                        <button
+                          onClick={handleSignOut}
+                          className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Wyloguj się
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="py-1">
+                        <Link
+                          href="/login"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={closeUserMenu}
+                        >
+                          Zaloguj się
+                        </Link>
+                        <Link
+                          href="/register"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={closeUserMenu}
+                        >
+                          Zarejestruj się
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className={`transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
+                className={`flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
+                  shouldBeWhite ? "text-gray-800" : "text-white"
+                } hover:opacity-80`}
                 aria-label="Search"
               >
-                <Search size={20} />
+                <span className={iconClass}>
+                  <Search size={iconSize} strokeWidth={1.5} />
+                </span>
               </button>
               <button
                 onClick={openCart}
-                className={`relative transition-colors duration-500 ${shouldBeWhite ? "text-gray-800" : "text-white"} hover:opacity-80`}
+                className={`relative flex items-center justify-center w-5 h-5 transition-colors duration-500 ${
+                  shouldBeWhite ? "text-gray-800" : "text-white"
+                } hover:opacity-80`}
                 aria-label="Koszyk"
               >
-                <ShoppingBag size={20} />
+                <span className={iconClass}>
+                  <ShoppingBag size={iconSize} strokeWidth={1.5} />
+                </span>
                 {totalItems > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {totalItems}

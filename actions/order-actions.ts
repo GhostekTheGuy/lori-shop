@@ -23,6 +23,36 @@ interface OrderData {
   isPreviewEnvironment?: boolean
 }
 
+export interface OrderItem {
+  id: string
+  product_id: string
+  quantity: number
+  price: number
+  size?: string
+  color?: string
+  product?: {
+    id: string
+    name: string
+    image_url?: string
+    slug?: string
+  }
+}
+
+export interface Order {
+  id: string
+  user_id: string
+  created_at: string
+  updated_at: string
+  status: string
+  payment_status: string
+  total: number
+  shipping_address: any
+  payment_intent?: string
+  notes?: string
+  order_items?: OrderItem[]
+  items_count?: number
+}
+
 export async function createOrder(data: OrderData) {
   try {
     const supabase = getSupabase()
@@ -114,8 +144,7 @@ export async function createOrder(data: OrderData) {
   }
 }
 
-// Pozostałe funkcje pozostają bez zmian
-export async function getOrderById(orderId: string) {
+export async function getOrderById(orderId: string): Promise<Order | null> {
   try {
     const supabase = getSupabase()
 
@@ -125,7 +154,7 @@ export async function getOrderById(orderId: string) {
         *,
         order_items:order_items(
           *,
-          product:products(*)
+          product:products(id, name, image_url, slug)
         )
       `)
       .eq("id", orderId)
@@ -136,32 +165,106 @@ export async function getOrderById(orderId: string) {
       return null
     }
 
-    return order
+    return order as Order
   } catch (error) {
     console.error("Error in getOrderById:", error)
     return null
   }
 }
 
-export async function getUserOrders(userId: string) {
+export interface OrdersFilter {
+  status?: string
+  paymentStatus?: string
+  dateFrom?: string
+  dateTo?: string
+  minTotal?: number
+  maxTotal?: number
+}
+
+export interface OrdersParams {
+  userId: string
+  page?: number
+  limit?: number
+  sortBy?: string
+  sortOrder?: "asc" | "desc"
+  filter?: OrdersFilter
+}
+
+export async function getUserOrders({
+  userId,
+  page = 1,
+  limit = 10,
+  sortBy = "created_at",
+  sortOrder = "desc",
+  filter = {},
+}: OrdersParams): Promise<{ orders: Order[]; total: number }> {
   try {
     const supabase = getSupabase()
+    const offset = (page - 1) * limit
 
-    const { data: orders, error } = await supabase
+    // Start building the query
+    let query = supabase
       .from("orders")
-      .select("*")
+      .select(
+        `
+        *,
+        order_items:order_items(
+          *,
+          product:products(id, name, image_url, slug)
+        )
+      `,
+        { count: "exact" },
+      )
       .eq("user_id", userId)
-      .order("created_at", { ascending: false })
+
+    // Apply filters
+    if (filter.status) {
+      query = query.eq("status", filter.status)
+    }
+
+    if (filter.paymentStatus) {
+      query = query.eq("payment_status", filter.paymentStatus)
+    }
+
+    if (filter.dateFrom) {
+      query = query.gte("created_at", filter.dateFrom)
+    }
+
+    if (filter.dateTo) {
+      query = query.lte("created_at", filter.dateTo)
+    }
+
+    if (filter.minTotal !== undefined) {
+      query = query.gte("total", filter.minTotal)
+    }
+
+    if (filter.maxTotal !== undefined) {
+      query = query.lte("total", filter.maxTotal)
+    }
+
+    // Apply sorting and pagination
+    const { data, error, count } = await query
+      .order(sortBy, { ascending: sortOrder === "asc" })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error("Error fetching user orders:", error)
-      return []
+      return { orders: [], total: 0 }
     }
 
-    return orders
+    // Calculate items count for each order
+    const ordersWithItemsCount = data.map((order) => ({
+      ...order,
+      items_count: order.order_items?.length || 0,
+    }))
+
+    return {
+      orders: ordersWithItemsCount as Order[],
+      total: count || 0,
+    }
   } catch (error) {
     console.error("Error in getUserOrders:", error)
-    return []
+    return { orders: [], total: 0 }
   }
 }
 
@@ -203,6 +306,67 @@ export async function updateOrderStatus(id: string, status: string) {
   // Revalidate the orders page
   revalidatePath("/admin/orders")
   revalidatePath(`/admin/orders/${id}`)
+  revalidatePath("/account")
 
   return { success: true }
+}
+
+// Get order statistics for a user
+export async function getUserOrderStats(userId: string) {
+  try {
+    const supabase = getSupabase()
+
+    // Get total orders count
+    const { count: totalOrders, error: countError } = await supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+
+    if (countError) {
+      console.error("Error fetching order count:", countError)
+      return null
+    }
+
+    // Get total spent
+    const { data: totalSpentData, error: totalSpentError } = await supabase
+      .from("orders")
+      .select("total")
+      .eq("user_id", userId)
+      .eq("payment_status", "paid")
+
+    if (totalSpentError) {
+      console.error("Error fetching total spent:", totalSpentError)
+      return null
+    }
+
+    const totalSpent = totalSpentData.reduce((sum, order) => sum + order.total, 0)
+
+    // Get recent orders
+    const { data: recentOrders, error: recentOrdersError } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        created_at,
+        total,
+        status,
+        payment_status
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(3)
+
+    if (recentOrdersError) {
+      console.error("Error fetching recent orders:", recentOrdersError)
+      return null
+    }
+
+    return {
+      totalOrders,
+      totalSpent,
+      recentOrders,
+    }
+  } catch (error) {
+    console.error("Error in getUserOrderStats:", error)
+    return null
+  }
 }
