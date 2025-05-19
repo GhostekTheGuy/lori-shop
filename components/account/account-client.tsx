@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { UserProfile } from "@/components/account/user-profile"
@@ -16,9 +16,16 @@ import { Loader2 } from "lucide-react"
 export function AccountClient() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const tabParam = searchParams.get("tab")
-  const [activeTab, setActiveTab] = useState(tabParam || "dashboard")
+  const [activeTab, setActiveTab] = useState("dashboard")
+
+  useEffect(() => {
+    // Get tab from URL on client-side only
+    const searchParams = new URLSearchParams(window.location.search)
+    const tabParam = searchParams.get("tab")
+    if (tabParam) {
+      setActiveTab(tabParam)
+    }
+  }, [])
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -35,13 +42,6 @@ export function AccountClient() {
       router.push("/account", { scroll: false })
     }
   }, [activeTab, router])
-
-  // Update active tab when URL changes
-  useEffect(() => {
-    if (tabParam) {
-      setActiveTab(tabParam)
-    }
-  }, [tabParam])
 
   if (isLoading) {
     return (
