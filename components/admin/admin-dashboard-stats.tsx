@@ -33,17 +33,37 @@ export function AdminDashboardStats() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [useMockData, setUseMockData] = useState(false)
 
   useEffect(() => {
     async function fetchStats() {
+      if (useMockData) {
+        setStats(defaultStats)
+        setLoading(false)
+        return
+      }
+
       try {
         setLoading(true)
         const data = await getDashboardStats()
-        setStats(data)
-        setError(null)
+
+        // Check if we got valid data
+        const hasValidData =
+          data &&
+          typeof data.revenue?.current === "number" &&
+          typeof data.orders?.current === "number" &&
+          typeof data.products?.current === "number" &&
+          typeof data.customers?.current === "number"
+
+        if (hasValidData) {
+          setStats(data)
+          setError(null)
+        } else {
+          throw new Error("Received invalid data format")
+        }
       } catch (err) {
         console.error("Error fetching dashboard stats:", err)
-        setError("Nie udało się pobrać wszystkich statystyk. Wyświetlam dane przykładowe.")
+        setError("Nie udało się pobrać statystyk. Wyświetlam dane przykładowe.")
         // Use default stats when there's an error
         setStats(defaultStats)
       } finally {
@@ -52,7 +72,7 @@ export function AdminDashboardStats() {
     }
 
     fetchStats()
-  }, [])
+  }, [useMockData])
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -88,6 +108,11 @@ export function AdminDashboardStats() {
     return (
       <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700 text-sm">
         <p>{error}</p>
+        <div className="mt-2">
+          <button onClick={() => setUseMockData(!useMockData)} className="text-xs font-medium underline">
+            {useMockData ? "Spróbuj użyć prawdziwych danych" : "Użyj danych przykładowych"}
+          </button>
+        </div>
       </div>
     )
   }

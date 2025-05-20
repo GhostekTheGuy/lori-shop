@@ -131,102 +131,75 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const productsPercentChange =
     previousProductsCount === 0 ? 100 : ((currentProductsCount - previousProductsCount) / previousProductsCount) * 100
 
-  // Get customers data from auth.users instead of users table
+  // Default customer values
   let currentCustomersCount = 0
   let totalCustomersCount = 0
   let previousCustomersCount = 0
+  let customersPercentChange = 0
 
+  // Try to get customer data from orders table as a fallback
   try {
-    // Get current month customers count from auth.users
-    const { data: currentCustomersData, error: currentCustomersError } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    })
+    // First check if we can get customer data from orders
+    const { data: uniqueCustomers, error: uniqueCustomersError } = await supabase
+      .from("orders")
+      .select("user_id")
+      .is("user_id", "not.null")
+      .order("user_id")
 
-    if (currentCustomersError) {
-      console.error("Error fetching current customers:", currentCustomersError)
-    } else {
-      // Filter users created in current month
-      currentCustomersCount =
-        currentCustomersData?.users.filter((user) => {
-          const createdAt = new Date(user.created_at)
-          return createdAt >= new Date(currentMonthStart) && createdAt <= new Date(currentMonthEnd)
-        }).length || 0
+    if (!uniqueCustomersError && uniqueCustomers) {
+      // Get unique customer IDs
+      const uniqueCustomerIds = [...new Set(uniqueCustomers.map((order) => order.user_id))]
+      totalCustomersCount = uniqueCustomerIds.length
 
-      // Total users count
-      totalCustomersCount = currentCustomersData?.users.length || 0
+      // Estimate current month customers (this is just an approximation)
+      const { count: currentMonthOrders } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", currentMonthStart)
+        .lte("created_at", currentMonthEnd)
 
-      // Filter users created in previous month
-      previousCustomersCount =
-        currentCustomersData?.users.filter((user) => {
-          const createdAt = new Date(user.created_at)
-          return createdAt >= new Date(previousMonthStart) && createdAt <= new Date(previousMonthEnd)
-        }).length || 0
+      // Estimate previous month customers
+      const { count: previousMonthOrders } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", previousMonthStart)
+        .lte("created_at", previousMonthEnd)
+
+      // Set approximate values based on order counts
+      currentCustomersCount = Math.min(totalCustomersCount, currentMonthOrders || 0)
+      previousCustomersCount = Math.min(totalCustomersCount, previousMonthOrders || 0)
+
+      // Calculate percent change
+      customersPercentChange =
+        previousCustomersCount === 0
+          ? 0
+          : ((currentCustomersCount - previousCustomersCount) / previousCustomersCount) * 100
     }
   } catch (error) {
-    console.error("Error accessing auth.users:", error)
-
-    // Fallback: try to get users from the public users table if it exists
-    try {
-      // Check if users table exists and has created_at column
-      const { data: usersTableExists } = await supabase.from("users").select("id").limit(1)
-
-      if (usersTableExists && usersTableExists.length > 0) {
-        // Get current month customers count
-        const { count: currentCount } = await supabase
-          .from("users")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", currentMonthStart)
-          .lte("created_at", currentMonthEnd)
-
-        currentCustomersCount = currentCount || 0
-
-        // Get total customers count
-        const { count: totalCount } = await supabase.from("users").select("*", { count: "exact", head: true })
-
-        totalCustomersCount = totalCount || 0
-
-        // Get previous month customers count
-        const { count: previousCount } = await supabase
-          .from("users")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", previousMonthStart)
-          .lte("created_at", previousMonthEnd)
-
-        previousCustomersCount = previousCount || 0
-      }
-    } catch (fallbackError) {
-      console.error("Error with fallback users query:", fallbackError)
-      // Use default values if both methods fail
-    }
+    console.error("Error getting customer data from orders:", error)
+    // Keep default values
   }
-
-  // Calculate customers percent change with fallback to default values
-  const customersPercentChange =
-    previousCustomersCount === 0
-      ? 100
-      : ((currentCustomersCount - previousCustomersCount) / previousCustomersCount) * 100
 
   return {
     revenue: {
       current: currentRevenue,
       previous: previousRevenue,
-      percentChange: Number.parseFloat(revenuePercentChange.toFixed(1)),
+      percentChange: Number.parseFloat(revenuePercentChange.toFixed(1)) || 0,
     },
     orders: {
       current: currentOrdersCount || 0,
       previous: previousOrdersCount || 0,
-      percentChange: Number.parseFloat(ordersPercentChange.toFixed(1)),
+      percentChange: Number.parseFloat(ordersPercentChange.toFixed(1)) || 0,
     },
     products: {
       current: totalProductsCount || 0,
       previous: totalProductsCount - currentProductsCount || 0,
-      percentChange: Number.parseFloat(productsPercentChange.toFixed(1)),
+      percentChange: Number.parseFloat(productsPercentChange.toFixed(1)) || 0,
     },
     customers: {
       current: totalCustomersCount || 0,
-      previous: totalCustomersCount - currentCustomersCount || 0,
-      percentChange: Number.parseFloat(customersPercentChange.toFixed(1)),
+      previous: previousCustomersCount || 0,
+      percentChange: Number.parseFloat(customersPercentChange.toFixed(1)) || 0,
     },
   }
 }
