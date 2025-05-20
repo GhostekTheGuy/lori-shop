@@ -38,21 +38,25 @@ export default function AdminLoginPage() {
         return
       }
 
-      // Sprawdź, czy użytkownik jest administratorem
-      // To jest obsługiwane przez hook useAuth, który ustawia isAdmin
-      // Poczekaj chwilę, aby kontekst auth miał czas na zaktualizowanie stanu
+      // Wait for auth context to update
       setTimeout(async () => {
-        const response = await fetch("/api/check-admin")
-        const data = await response.json()
+        try {
+          const response = await fetch("/api/check-admin")
+          const data = await response.json()
 
-        if (data.isAdmin) {
-          // Przekieruj do panelu administratora
-          router.push("/admin")
-        } else {
-          // Użytkownik nie jest administratorem
-          setError("Brak uprawnień administratora. Dostęp zabroniony.")
-          // Wyloguj użytkownika, który nie jest administratorem
-          await signOut()
+          if (data.isAdmin) {
+            // Redirect to admin panel
+            router.push("/admin")
+          } else {
+            // User is not an admin
+            setError("Brak uprawnień administratora. Dostęp zabroniony.")
+            // Log out non-admin user
+            await signOut()
+          }
+        } catch (err) {
+          setError("Wystąpił błąd podczas weryfikacji uprawnień administratora.")
+          console.error("Admin check error:", err)
+        } finally {
           setIsLoading(false)
         }
       }, 1000)
