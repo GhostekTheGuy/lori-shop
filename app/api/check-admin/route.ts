@@ -1,4 +1,4 @@
-import { getSupabase, getServerSupabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 import { cookies, headers } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -7,101 +7,59 @@ export async function GET() {
     const headersList = headers()
     const cookieStore = cookies()
 
-    // Get the auth token from the custom header or cookies
-    const authToken = headersList.get("x-supabase-auth") || cookieStore.get("sb-phenotype-store-auth-token")?.value
+    // Pobierz token autoryzacyjny z nagłówka
+    const authHeader = headersList.get("authorization")
+    const token = authHeader ? authHeader.replace("Bearer ", "") : null
 
-    // Get all cookies as a string for Supabase client
-    const cookieHeader = cookieStore
-      .getAll()
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .join("; ")
+    // Pobierz token z ciasteczka jako alternatywę
+    const authCookie = cookieStore.get("sb-phenotype-store-auth-token")?.value
 
-    console.log("API: Cookie header length:", cookieHeader.length)
-    console.log("API: Auth token exists:", !!authToken)
+    // Użyj tokenu z nagłówka lub ciasteczka
+    const authToken = token || authCookie
 
-    // Initialize Supabase with the cookie header
-    const supabase = await getServerSupabase(cookieHeader)
+    console.log("API: Token autoryzacyjny istnieje:", !!authToken)
 
-    if (!supabase) {
-      return NextResponse.json({ isAdmin: false, message: "Supabase client not initialized" }, { status: 500 })
-    }
-
-    // Get user session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("API: Session error:", sessionError)
-      return NextResponse.json({ isAdmin: false, message: `Session error: ${sessionError.message}` }, { status: 401 })
-    }
-
-    if (!session || !session.user) {
-      console.log("API: No active session found")
-
-      // If we have an auth token but no session, try to get the user directly
-      if (authToken) {
-        console.log("API: Attempting to use service role to verify user")
-
-        // Use service role to get user from JWT
-        const adminSupabase = getSupabase(true)
-
-        try {
-          const { data: userData, error: userError } = await adminSupabase.auth.getUser(authToken)
-
-          if (userError || !userData.user) {
-            console.error("API: Error getting user from token:", userError)
-            return NextResponse.json({ isAdmin: false, message: "Nie zalogowano" }, { status: 401 })
-          }
-
-          // Check if user is admin
-          const { data, error } = await adminSupabase
-            .from("users")
-            .select("is_admin")
-            .eq("id", userData.user.id)
-            .single()
-
-          if (error) {
-            console.error("API: Error checking admin privileges:", error)
-            return NextResponse.json(
-              { isAdmin: false, message: `Błąd podczas sprawdzania uprawnień: ${error.message}` },
-              { status: 500 },
-            )
-          }
-
-          console.log("API: Admin check result (service role):", data)
-          return NextResponse.json({ isAdmin: data?.is_admin === true })
-        } catch (err) {
-          console.error("API: Error verifying token:", err)
-          return NextResponse.json({ isAdmin: false, message: "Nie zalogowano" }, { status: 401 })
-        }
-      }
-
+    if (!authToken) {
+      console.log("API: Brak tokenu autoryzacyjnego")
       return NextResponse.json({ isAdmin: false, message: "Nie zalogowano" }, { status: 401 })
     }
 
-    console.log("API: Checking admin status for user:", session.user.id)
+    // Użyj klienta Supabase z uprawnieniami administratora
+    const supabase = getSupabase(true)
 
-    // Check if user is admin
-    const { data, error } = await supabase.from("users").select("is_admin").eq("id", session.user.id).single()
+    if (!supabase) {
+      return NextResponse.json({ isAdmin: false, message: "Nie można zainicjować klienta Supabase" }, { status: 500 })
+    }
+
+    // Pobierz użytkownika na podstawie tokenu
+    const { data: userData, error: userError } = await supabase.auth.getUser(authToken)
+
+    if (userError || !userData.user) {
+      console.error("API: Błąd pobierania użytkownika z tokenu:", userError)
+      return NextResponse.json({ isAdmin: false, message: "Nie zalogowano" }, { status: 401 })
+    }
+
+    console.log("API: Sprawdzanie statusu administratora dla użytkownika:", userData.user.id)
+
+    // Sprawdź, czy użytkownik jest administratorem
+    const { data, error } = await supabase.from("users").select("is_admin").eq("id", userData.user.id).single()
 
     if (error) {
-      console.error("API: Error checking admin privileges:", error)
+      console.error("API: Błąd sprawdzania uprawnień administratora:", error)
 
-      // If the error is that the user doesn't exist in the users table, create them
+      // Jeśli błąd wynika z braku użytkownika w tabeli users, utwórz go
       if (error.code === "PGRST116") {
-        console.log("API: User not found in users table, creating entry")
+        console.log("API: Użytkownik nie znaleziony w tabeli users, tworzenie wpisu")
 
-        // Insert the user into the users table
+        // Dodaj użytkownika do tabeli users
         const { error: insertError } = await supabase.from("users").insert({
-          id: session.user.id,
-          email: session.user.email,
-          is_admin: false, // Default to non-admin
+          id: userData.user.id,
+          email: userData.user.email,
+          is_admin: false, // Domyślnie użytkownik nie jest administratorem
         })
 
         if (insertError) {
-          console.error("API: Error creating user entry:", insertError)
+          console.error("API: Błąd tworzenia wpisu użytkownika:", insertError)
           return NextResponse.json(
             {
               isAdmin: false,
@@ -123,12 +81,12 @@ export async function GET() {
       )
     }
 
-    console.log("API: Admin check result:", data)
+    console.log("API: Wynik sprawdzania administratora:", data)
 
-    // Return admin status
+    // Zwróć status administratora
     return NextResponse.json({ isAdmin: data?.is_admin === true })
   } catch (error: any) {
-    console.error("API: Unexpected error:", error)
+    console.error("API: Nieoczekiwany błąd:", error)
     return NextResponse.json(
       {
         isAdmin: false,

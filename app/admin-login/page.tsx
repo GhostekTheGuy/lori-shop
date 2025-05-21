@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
@@ -18,87 +18,106 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, signOut } = useAuth()
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const { signIn, signOut, user, isAdmin } = useAuth()
   const router = useRouter()
 
-  // Check if we're already logged in
-  useEffect(() => {
-    const checkSession = async () => {
-      const supabase = getSupabase()
-      if (!supabase) return
-
-      const { data } = await supabase.auth.getSession()
-      if (data.session) {
-        console.log("Already logged in, checking admin status...")
-        checkAdminStatus(data.session.access_token)
-      }
-    }
-
-    checkSession()
-  }, [])
-
-  const checkAdminStatus = async (token?: string) => {
+  // Funkcja do sprawdzania statusu administratora
+  const checkAdminStatus = useCallback(async () => {
     try {
-      setIsLoading(true)
+      console.log("Sprawdzanie statusu administratora...")
+      setDebugInfo("Sprawdzanie statusu administratora...")
 
-      // Force a refresh of the session token before checking admin status
+      // Pobierz token dostępu
       const supabase = getSupabase()
-      if (supabase) {
-        const { data } = await supabase.auth.refreshSession()
-        token = data.session?.access_token || token
+      if (!supabase) {
+        throw new Error("Nie można zainicjować klienta Supabase")
       }
 
-      // Add the token to the request headers
-      const headers: HeadersInit = {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      if (!token) {
+        throw new Error("Brak tokenu dostępu")
       }
 
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
+      setDebugInfo("Token dostępu uzyskany, wysyłanie żądania do API...")
 
+      // Dodaj token do nagłówków żądania
       const response = await fetch("/api/check-admin", {
         method: "GET",
-        headers,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Error checking admin status")
-      }
-
       const data = await response.json()
-      console.log("Admin check response:", data)
+      setDebugInfo(`Odpowiedź API: ${JSON.stringify(data)}`)
+      console.log("Odpowiedź sprawdzania administratora:", data)
 
       if (data.isAdmin) {
-        // Redirect to admin panel
+        setDebugInfo("Użytkownik jest administratorem, przekierowywanie...")
+        // Przekierowanie do panelu administratora
         router.push("/admin")
       } else {
-        // User is not an admin
+        setDebugInfo("Użytkownik nie jest administratorem")
         setError("Brak uprawnień administratora. Dostęp zabroniony.")
-        // Log out non-admin user
+        // Wyloguj użytkownika bez uprawnień administratora
         await signOut()
       }
     } catch (err: any) {
-      console.error("Admin check error:", err)
+      console.error("Błąd sprawdzania statusu administratora:", err)
+      setDebugInfo(`Błąd: ${err.message}`)
       setError(`Wystąpił błąd podczas weryfikacji uprawnień administratora: ${err.message}`)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [router, signOut])
+
+  // Sprawdź, czy jesteśmy już zalogowani
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const supabase = getSupabase()
+        if (!supabase) return
+
+        const { data } = await supabase.auth.getSession()
+        if (data.session) {
+          console.log("Już zalogowany, sprawdzanie statusu administratora...")
+          setIsLoading(true)
+          await checkAdminStatus()
+        }
+      } catch (error) {
+        console.error("Błąd podczas sprawdzania sesji:", error)
+        setIsLoading(false)
+      }
+    }
+
+    checkSession()
+  }, [checkAdminStatus])
+
+  // Obserwuj zmiany użytkownika i statusu administratora
+  useEffect(() => {
+    if (user && isAdmin) {
+      console.log("Użytkownik zalogowany i jest administratorem, przekierowywanie...")
+      router.push("/admin")
+    }
+  }, [user, isAdmin, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setDebugInfo(null)
     setIsLoading(true)
 
     try {
-      // First, sign out to clear any existing sessions
+      // Najpierw wyloguj, aby wyczyścić istniejące sesje
       await signOut()
 
-      // Then sign in with the provided credentials
+      // Następnie zaloguj się podanymi danymi
       const { error: signInError } = await signIn(email, password)
 
       if (signInError) {
@@ -107,23 +126,25 @@ export default function AdminLoginPage() {
         return
       }
 
-      // Add a console log to help with debugging
-      console.log("Sign in successful, checking admin status...")
+      console.log("Logowanie pomyślne, sprawdzanie statusu administratora...")
+      setDebugInfo("Logowanie pomyślne, sprawdzanie statusu administratora...")
 
-      // Get the session to extract the token
-      const supabase = getSupabase()
-      const { data } = await supabase.auth.getSession()
-      const token = data.session?.access_token
+      // Poczekaj chwilę, aby sesja została ustanowiona
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Wait a moment for the session to be established
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      await checkAdminStatus(token)
+      // Sprawdź status administratora
+      await checkAdminStatus()
     } catch (err: any) {
-      console.error("Unexpected error during login:", err)
+      console.error("Nieoczekiwany błąd podczas logowania:", err)
+      setDebugInfo(`Nieoczekiwany błąd: ${err.message}`)
       setError(`Wystąpił nieoczekiwany błąd: ${err.message}`)
       setIsLoading(false)
     }
+  }
+
+  // Funkcja do bezpośredniego przekierowania do panelu administratora (do debugowania)
+  const forceRedirect = () => {
+    router.push("/admin")
   }
 
   return (
@@ -143,6 +164,12 @@ export default function AdminLoginPage() {
           <Alert variant="destructive">
             <ShieldAlert className="h-4 w-4 mr-2" />
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {debugInfo && (
+          <Alert>
+            <AlertDescription className="text-xs">{debugInfo}</AlertDescription>
           </Alert>
         )}
 
@@ -182,7 +209,7 @@ export default function AdminLoginPage() {
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col gap-2">
             <Button
               type="submit"
               disabled={isLoading}
@@ -197,6 +224,12 @@ export default function AdminLoginPage() {
                 "Zaloguj się jako Administrator"
               )}
             </Button>
+
+            {process.env.NODE_ENV === "development" && (
+              <Button type="button" variant="outline" onClick={forceRedirect} className="text-xs">
+                Wymuś przekierowanie (tylko dev)
+              </Button>
+            )}
           </div>
         </form>
 
