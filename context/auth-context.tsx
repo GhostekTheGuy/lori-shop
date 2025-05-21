@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { getSupabaseClient } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 import type { User, Session } from "@supabase/supabase-js"
 
 type AuthContextType = {
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check if Supabase is available
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
     if (!supabase) {
       console.error("Supabase client not initialized")
       setIsLoading(false)
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
     if (!supabase) {
       setIsAdmin(false)
       return
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signIn = async (email: string, password: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
     if (!supabase) {
       return { error: { message: "Supabase client not initialized" } }
     }
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
     if (!supabase) {
       return { error: { message: "Supabase client not initialized" }, data: null }
     }
@@ -185,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
     if (!supabase) return
 
     try {
@@ -236,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const resetPassword = async (email: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
     if (!supabase) {
       return { error: { message: "Supabase client not initialized" } }
     }

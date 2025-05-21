@@ -1,75 +1,107 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { getSupabase } from "@/lib/supabase"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getSupabaseClient } from "@/lib/supabase"
-import { useAuth } from "@/context/auth-context"
 
 export function AuthDebug() {
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const { user, session, isAdmin } = useAuth()
+  const [sessionData, setSessionData] = useState<any>(null)
+  const [apiResponse, setApiResponse] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
 
-  const checkAuthState = async () => {
-    setIsLoading(true)
+  const checkSession = async () => {
+    const supabase = getSupabase()
+    if (!supabase) return
+
+    const { data } = await supabase.auth.getSession()
+    setSessionData(data)
+  }
+
+  const checkAdminAPI = async () => {
+    setLoading(true)
     try {
-      const supabase = getSupabaseClient()
-      if (!supabase) {
-        setDebugInfo({ error: "Supabase client not initialized" })
-        return
-      }
-
-      const { data: sessionData } = await supabase.auth.getSession()
-
-      // Check admin status via API
-      let adminCheckResult = null
-      try {
-        const response = await fetch("/api/check-admin", {
-          headers: { "Cache-Control": "no-cache" },
-        })
-        adminCheckResult = {
-          status: response.status,
-          data: await response.json(),
-        }
-      } catch (error) {
-        adminCheckResult = { error: String(error) }
-      }
-
-      setDebugInfo({
-        clientState: {
-          user: user ? { id: user.id, email: user.email } : null,
-          isAdmin,
-          hasSession: !!session,
+      const response = await fetch("/api/check-admin", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
         },
-        supabaseSession: sessionData,
-        adminApiCheck: adminCheckResult,
-        localStorage: typeof window !== "undefined" ? Object.keys(localStorage) : null,
-        cookies: typeof document !== "undefined" ? document.cookie : null,
+      })
+
+      const data = await response.json()
+      setApiResponse({
+        status: response.status,
+        data,
       })
     } catch (error) {
-      setDebugInfo({ error: String(error) })
+      setApiResponse({
+        error: String(error),
+      })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  return (
-    <Card className="w-full max-w-3xl mx-auto">
-      <CardHeader>
-        <CardTitle>Authentication Debug</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Button onClick={checkAuthState} disabled={isLoading} variant="outline" className="mb-4">
-          {isLoading ? "Checking..." : "Check Auth State"}
-        </Button>
+  const refreshToken = async () => {
+    setLoading(true)
+    const supabase = getSupabase()
+    if (!supabase) return
 
-        {debugInfo && (
-          <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-96 text-xs">
-            {JSON.stringify(debugInfo, null, 2)}
-          </pre>
-        )}
-      </CardContent>
-    </Card>
+    try {
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error) {
+        console.error("Error refreshing token:", error)
+      } else {
+        console.log("Token refreshed successfully")
+        await checkSession()
+      }
+    } catch (error) {
+      console.error("Unexpected error refreshing token:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    checkSession()
+  }, [])
+
+  return (
+    <div className="space-y-6 p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication Debug</CardTitle>
+          <CardDescription>Troubleshoot authentication issues</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex space-x-2">
+            <Button onClick={checkSession} variant="outline">
+              Check Session
+            </Button>
+            <Button onClick={checkAdminAPI} variant="outline" disabled={loading}>
+              Test API
+            </Button>
+            <Button onClick={refreshToken} variant="outline" disabled={loading}>
+              Refresh Token
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-lg font-medium mb-2">Client Session</h3>
+              <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-96 text-xs">
+                {JSON.stringify(sessionData, null, 2)}
+              </pre>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium mb-2">API Response</h3>
+              <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-96 text-xs">
+                {apiResponse ? JSON.stringify(apiResponse, null, 2) : "Not tested yet"}
+              </pre>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

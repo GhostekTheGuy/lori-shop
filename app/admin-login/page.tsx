@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, ShieldAlert, Lock } from "lucide-react"
-import { getSupabaseClient } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
@@ -24,36 +24,44 @@ export default function AdminLoginPage() {
   // Check if we're already logged in
   useEffect(() => {
     const checkSession = async () => {
-      const supabase = getSupabaseClient()
+      const supabase = getSupabase()
       if (!supabase) return
 
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         console.log("Already logged in, checking admin status...")
-        checkAdminStatus()
+        checkAdminStatus(data.session.access_token)
       }
     }
 
     checkSession()
   }, [])
 
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = async (token?: string) => {
     try {
       setIsLoading(true)
 
       // Force a refresh of the session token before checking admin status
-      const supabase = getSupabaseClient()
+      const supabase = getSupabase()
       if (supabase) {
-        await supabase.auth.refreshSession()
+        const { data } = await supabase.auth.refreshSession()
+        token = data.session?.access_token || token
+      }
+
+      // Add the token to the request headers
+      const headers: HeadersInit = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      }
+
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`
       }
 
       const response = await fetch("/api/check-admin", {
         method: "GET",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
+        headers,
       })
 
       if (!response.ok) {
@@ -102,10 +110,15 @@ export default function AdminLoginPage() {
       // Add a console log to help with debugging
       console.log("Sign in successful, checking admin status...")
 
+      // Get the session to extract the token
+      const supabase = getSupabase()
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+
       // Wait a moment for the session to be established
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      await checkAdminStatus()
+      await checkAdminStatus(token)
     } catch (err: any) {
       console.error("Unexpected error during login:", err)
       setError(`Wystąpił nieoczekiwany błąd: ${err.message}`)
