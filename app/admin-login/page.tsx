@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
@@ -17,12 +17,8 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, signOut } = useAuth() // Import signOut
+  const { signIn, signOut } = useAuth()
   const router = useRouter()
-
-  useEffect(() => {
-    // This useEffect ensures that signOut is only called after the component has mounted.
-  }, [signOut])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,30 +34,39 @@ export default function AdminLoginPage() {
         return
       }
 
-      // Wait for auth context to update
-      setTimeout(async () => {
-        try {
-          const response = await fetch("/api/check-admin")
-          const data = await response.json()
+      // Add a console log to help with debugging
+      console.log("Sign in successful, checking admin status...")
 
-          if (data.isAdmin) {
-            // Redirect to admin panel
-            router.push("/admin")
-          } else {
-            // User is not an admin
-            setError("Brak uprawnień administratora. Dostęp zabroniony.")
-            // Log out non-admin user
-            await signOut()
-          }
-        } catch (err) {
-          setError("Wystąpił błąd podczas weryfikacji uprawnień administratora.")
-          console.error("Admin check error:", err)
-        } finally {
-          setIsLoading(false)
+      try {
+        const response = await fetch("/api/check-admin")
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.message || "Error checking admin status")
         }
-      }, 1000)
-    } catch (err) {
-      setError("Wystąpił nieoczekiwany błąd. Spróbuj ponownie.")
+
+        const data = await response.json()
+        console.log("Admin check response:", data)
+
+        if (data.isAdmin) {
+          // Redirect to admin panel
+          router.push("/admin")
+        } else {
+          // User is not an admin
+          setError("Brak uprawnień administratora. Dostęp zabroniony.")
+          // Log out non-admin user
+          await signOut()
+        }
+      } catch (err: any) {
+        console.error("Admin check error:", err)
+        setError(`Wystąpił błąd podczas weryfikacji uprawnień administratora: ${err.message}`)
+        // Don't sign out on error, allow retry
+      } finally {
+        setIsLoading(false)
+      }
+    } catch (err: any) {
+      console.error("Unexpected error during login:", err)
+      setError(`Wystąpił nieoczekiwany błąd: ${err.message}`)
       setIsLoading(false)
     }
   }
