@@ -189,25 +189,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (supabase) {
       try {
         console.log("Signing out...")
-        await supabase.auth.signOut()
-        // Wyczyść stan po wylogowaniu
+
+        // 1. Clear all local storage related to Supabase
+        if (typeof window !== "undefined") {
+          // Clear specific Supabase storage items
+          const storageKey = "phenotype-store-auth"
+          localStorage.removeItem(storageKey)
+          localStorage.removeItem(`${storageKey}-token`)
+
+          // Clear any session cookies
+          document.cookie.split(";").forEach((c) => {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
+          })
+        }
+
+        // 2. Call Supabase signOut with scope: 'global' to clear all sessions
+        await supabase.auth.signOut({ scope: "global" })
+
+        // 3. Clear React state
         setUser(null)
         setSession(null)
         setIsAdmin(false)
+
         console.log("Sign out successful")
 
-        // Force a page reload to ensure all state is cleared
+        // 4. Force a hard reload with cache clearing
         if (typeof window !== "undefined") {
-          window.location.href = "/"
+          // Add a timestamp to prevent caching
+          window.location.href = `/?logout=${Date.now()}`
         }
       } catch (err) {
         console.error("Error during sign out:", err)
-        // Even if there's an error, try to clear the state and reload
+
+        // Even if there's an error, clear state and force reload
         setUser(null)
         setSession(null)
         setIsAdmin(false)
+
         if (typeof window !== "undefined") {
-          window.location.href = "/"
+          window.location.href = `/?logout=${Date.now()}`
         }
       }
     }
