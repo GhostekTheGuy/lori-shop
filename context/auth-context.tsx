@@ -191,26 +191,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log("Signing out...")
 
-      // 1. Clear React state first
+      // 1. Najpierw wyczyść stan React
       setUser(null)
       setSession(null)
       setIsAdmin(false)
 
-      // 2. Call Supabase signOut with scope: 'global' to clear all sessions
-      const { error } = await supabase.auth.signOut({ scope: "global" })
-
-      if (error) {
-        console.error("Error during sign out:", error)
-      }
-
-      // 3. Clear browser storage
+      // 2. Wyczyść pamięć lokalną i ciasteczka
       if (typeof window !== "undefined") {
-        // Clear specific Supabase storage items
+        // Wyczyść elementy pamięci lokalnej związane z Supabase
         const storageKey = "phenotype-store-auth"
         localStorage.removeItem(storageKey)
         localStorage.removeItem(`${storageKey}-token`)
 
-        // Clear session cookies
+        // Wyczyść ciasteczka sesji
         document.cookie.split(";").forEach((c) => {
           document.cookie = c
             .replace(/^ +/, "")
@@ -218,19 +211,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
       }
 
+      // 3. Wywołaj wylogowanie Supabase z zakresem globalnym
+      await supabase.auth.signOut({ scope: "global" })
+
       console.log("Sign out successful")
 
-      // 4. Force a hard reload with cache clearing
+      // 4. Użyj bezpośredniego przekierowania zamiast window.location.href
       if (typeof window !== "undefined") {
-        // Add a timestamp to prevent caching
-        window.location.href = `/?logout=${Date.now()}`
+        // Dodaj parametr timestamp, aby zapobiec cachowaniu
+        const timestamp = Date.now()
+
+        // Użyj setTimeout, aby dać przeglądarce czas na przetworzenie wylogowania
+        setTimeout(() => {
+          // Użyj window.location.replace zamiast window.location.href
+          window.location.replace(`/?logout=${timestamp}`)
+        }, 100)
       }
     } catch (err) {
       console.error("Error during sign out:", err)
 
-      // Even if there's an error, force reload
+      // Nawet w przypadku błędu, wymuś przekierowanie
       if (typeof window !== "undefined") {
-        window.location.href = `/?logout=${Date.now()}`
+        const timestamp = Date.now()
+        setTimeout(() => {
+          window.location.replace(`/?logout=${timestamp}`)
+        }, 100)
       }
     }
   }
