@@ -132,12 +132,32 @@ export async function getProductsByCategory(category: string, limit?: number) {
       return []
     }
 
-    let query = supabase
-      .from("products")
-      .select("*")
-      .eq("category", category)
-      .eq("published", true)
-      .order("created_at", { ascending: false })
+    let query
+
+    if (category === "all") {
+      // If "all" category, get all published products
+      query = supabase.from("products").select("*").eq("published", true).order("created_at", { ascending: false })
+    } else {
+      // Otherwise, join with categories to find products in the specified category
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", category)
+        .single()
+
+      if (categoryError || !categoryData) {
+        console.error("Error finding category:", categoryError)
+        return []
+      }
+
+      // Get products with the matching category_id
+      query = supabase
+        .from("products")
+        .select("*")
+        .eq("category_id", categoryData.id)
+        .eq("published", true)
+        .order("created_at", { ascending: false })
+    }
 
     if (limit) {
       query = query.limit(limit)
@@ -300,24 +320,37 @@ export async function getProductCategories(): Promise<string[]> {
     return []
   }
 
-  const { data, error } = await supabase
-    .from("products")
-    .select("category")
-    .eq("published", true)
-    .order("category", { ascending: true })
+  try {
+    // First, check if we have any categories in the categories table
+    const { data: categoriesData, error: categoriesError } = await supabase
+      .from("categories")
+      .select("slug")
+      .order("name", { ascending: true })
 
-  if (error) {
-    console.error("Error fetching product categories:", error)
-    return []
-  }
-
-  // Extract unique categories
-  const categories = new Set<string>(["all"])
-  data.forEach((product) => {
-    if (product.category) {
-      categories.add(product.category)
+    if (categoriesError) {
+      console.error("Error fetching categories:", categoriesError)
+      return []
     }
-  })
 
-  return Array.from(categories)
+    // If we have categories, return their slugs
+    if (categoriesData && categoriesData.length > 0) {
+      // Always include "all" category
+      const categories = new Set<string>(["all"])
+
+      // Add other category slugs
+      categoriesData.forEach((category) => {
+        if (category.slug) {
+          categories.add(category.slug)
+        }
+      })
+
+      return Array.from(categories)
+    }
+
+    // Fallback: If no categories found, return just "all"
+    return ["all"]
+  } catch (error) {
+    console.error("Error in getProductCategories:", error)
+    return ["all"] // Return at least "all" as a fallback
+  }
 }
