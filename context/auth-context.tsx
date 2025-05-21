@@ -188,13 +188,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase()
     if (supabase) {
       try {
+        console.log("Signing out...")
         await supabase.auth.signOut()
         // Wyczyść stan po wylogowaniu
         setUser(null)
         setSession(null)
         setIsAdmin(false)
+        console.log("Sign out successful")
+
+        // Force a page reload to ensure all state is cleared
+        if (typeof window !== "undefined") {
+          window.location.href = "/"
+        }
       } catch (err) {
         console.error("Error during sign out:", err)
+        // Even if there's an error, try to clear the state and reload
+        setUser(null)
+        setSession(null)
+        setIsAdmin(false)
+        if (typeof window !== "undefined") {
+          window.location.href = "/"
+        }
       }
     }
   }

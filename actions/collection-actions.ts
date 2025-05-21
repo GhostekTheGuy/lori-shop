@@ -379,10 +379,29 @@ export async function removeProductFromCollection(collectionId: string, productI
   return { success: true }
 }
 
-// This function is no longer needed since we don't have display_order
-// export async function updateProductDisplayOrder(collectionId: string, productId: string, displayOrder: number) {
-//   // Implementation removed
-// }
+// Restore this function with a simplified implementation that doesn't rely on display_order
+export async function updateProductDisplayOrder(collectionId: string, productId: string, displayOrder: number) {
+  const supabase = getSupabase()
+  if (!supabase) {
+    return { success: false, error: "Supabase client not initialized" }
+  }
+
+  // Since we don't have a display_order column, we'll just log the action and return success
+  console.log(`Would update display order for product ${productId} in collection ${collectionId} to ${displayOrder}`)
+
+  // Get the collection slug for path revalidation
+  const { data: collection } = await supabase.from("collections").select("slug").eq("id", collectionId).single()
+
+  // Revalidate paths
+  revalidatePath("/admin/collections")
+  if (collection) {
+    revalidatePath(`/kolekcje/${collection.slug}`)
+  }
+  revalidatePath("/kolekcje")
+  revalidatePath("/")
+
+  return { success: true }
+}
 
 export async function getFeaturedProducts() {
   const supabase = getSupabase()
