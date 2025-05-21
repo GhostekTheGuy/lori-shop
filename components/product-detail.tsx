@@ -9,6 +9,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useCart } from "@/context/cart-context"
 import { SizeChartModal } from "@/components/size-chart-modal"
+import { ProductImageZoom } from "@/components/product-image-zoom"
 import type { Product } from "@/actions/product-actions"
 
 interface ProductDetailProps {
@@ -19,6 +20,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const [selectedSize, setSelectedSize] = useState<string>("")
   const [quantity, setQuantity] = useState(1)
   const [isSizeChartOpen, setIsSizeChartOpen] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const { addItem } = useCart()
 
   const handleAddToCart = () => {
@@ -49,25 +51,26 @@ export default function ProductDetail({ product }: ProductDetailProps) {
       <main className="container mx-auto px-4 pt-24 pb-8">
         <div className="mb-6">
           <Link href="/" className="text-sm border border-gray-300 px-4 py-2 inline-block hover:bg-gray-50">
-            Wróć na stronę główną Lori Blank ™
+            Wróć na stronę główną
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
           {/* Product Gallery */}
           <div className="space-y-4">
-            <div className="aspect-square bg-gray-100 relative overflow-hidden">
-              <Image
-                src={product.images[0] || "/placeholder.svg"}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-            </div>
+            {/* Main product image with zoom */}
+            <ProductImageZoom src={product.images[selectedImageIndex] || "/placeholder.svg"} alt={product.name} />
+
+            {/* Thumbnail gallery */}
             <div className="grid grid-cols-4 gap-2">
               {product.images.map((image, index) => (
-                <div key={index} className="aspect-square bg-gray-100 relative overflow-hidden cursor-pointer">
+                <div
+                  key={index}
+                  className={`aspect-square bg-gray-100 relative overflow-hidden cursor-pointer ${
+                    selectedImageIndex === index ? "ring-2 ring-black" : ""
+                  }`}
+                  onClick={() => setSelectedImageIndex(index)}
+                >
                   <Image
                     src={image || "/placeholder.svg"}
                     alt={`${product.name} view ${index + 1}`}

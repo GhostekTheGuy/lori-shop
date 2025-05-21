@@ -1,10 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
+import { LogOut, Home } from "lucide-react"
 
 interface LogoutButtonProps {
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
@@ -43,15 +44,23 @@ export function LogoutButton({ variant = "ghost", size = "sm", className = "" }:
   }
 
   return (
-    <Button variant={variant} size={size} className={className} onClick={handleLogout} disabled={isLoggingOut}>
-      {isLoggingOut ? (
-        "Wylogowywanie..."
-      ) : (
-        <>
-          <LogOut className="h-4 w-4 mr-2" />
-          Wyloguj
-        </>
-      )}
-    </Button>
+    <div className="flex flex-col space-y-2">
+      <Link href="/">
+        <Button variant="outline" size={size} className={className}>
+          <Home className="h-4 w-4 mr-2" />
+          Strona główna
+        </Button>
+      </Link>
+      <Button variant={variant} size={size} className={className} onClick={handleLogout} disabled={isLoggingOut}>
+        {isLoggingOut ? (
+          "Wylogowywanie..."
+        ) : (
+          <>
+            <LogOut className="h-4 w-4 mr-2" />
+            Wyloguj
+          </>
+        )}
+      </Button>
+    </div>
   )
 }

@@ -104,9 +104,14 @@ export function CartDrawer() {
                 <span className="font-medium">{subtotal.toFixed(2)} zł</span>
               </div>
               <p className="text-sm text-gray-500 mb-4">Koszty wysyłki i podatki obliczane przy kasie</p>
-              <Button onClick={handleCheckout} className="w-full bg-black text-white hover:bg-gray-800">
-                Przejdź do kasy
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button onClick={closeCart} variant="outline" className="w-full">
+                  Kontynuuj zakupy
+                </Button>
+                <Button onClick={handleCheckout} className="w-full bg-black text-white hover:bg-gray-800">
+                  Przejdź do kasy
+                </Button>
+              </div>
             </div>
           )}
         </div>
