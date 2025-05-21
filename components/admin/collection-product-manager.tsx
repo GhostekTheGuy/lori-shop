@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import type { Collection } from "@/actions/collection-actions"
 import type { Product } from "@/actions/product-actions"
@@ -13,9 +14,8 @@ import {
   removeProductFromCollection,
   updateProductDisplayOrder,
 } from "@/actions/collection-actions"
-import { Loader2, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2, Plus, Trash } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface CollectionProductManagerProps {
   collection: Collection
@@ -35,6 +35,24 @@ export function CollectionProductManager({
   const [isLoading, setIsLoading] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState<Record<string, boolean>>({})
+  const [currentProducts, setCurrentProducts] = useState<Product[]>(
+    allProducts.filter((product) => collectionProductIds.includes(product.id)),
+  )
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>(
+    allProducts.filter((product) => !collectionProductIds.includes(product.id)),
+  )
+
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = allProducts
+        .filter((product) => !collectionProductIds.includes(product.id))
+        .filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      setFilteredProducts(filtered)
+    } else {
+      setFilteredProducts(allProducts.filter((product) => !collectionProductIds.includes(product.id)))
+    }
+  }, [searchTerm, allProducts, collectionProductIds])
 
   // Filter products that are not already in the collection
   const availableProducts = allProducts.filter((product) => !collectionProductIds.includes(product.id))
@@ -56,68 +74,73 @@ export function CollectionProductManager({
     return aOrder - bOrder
   })
 
-  const handleAddProduct = async () => {
-    if (!selectedProductId) return
-
-    setIsLoading(true)
+  const handleAddProduct = async (productId: string) => {
+    setLoading((prev) => ({ ...prev, [productId]: true }))
     try {
-      // Get the highest display order
-      const highestOrder =
-        collectionProducts.length > 0 ? Math.max(...collectionProducts.map((cp) => cp.display_order)) : -1
-
-      const result = await addProductToCollection(collection.id, selectedProductId, highestOrder + 1)
-
+      const result = await addProductToCollection(collection.id, productId)
       if (result.success) {
+        // Find the product from available products
+        const product = allProducts.find((p) => p.id === productId)
+        if (product) {
+          // Add to current products
+          setCurrentProducts((prev) => [...prev, product])
+          // Remove from available products
+          setFilteredProducts((prev) => prev.filter((p) => p.id !== productId))
+        }
         toast({
-          title: "Product added",
-          description: "The product has been added to the collection.",
+          title: "Success",
+          description: "Product added to collection",
         })
-        setSelectedProductId("")
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to add product to collection.",
+          description: result.error || "Failed to add product to collection",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error adding product:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: "An unexpected error occurred",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading((prev) => ({ ...prev, [productId]: false }))
     }
   }
 
   const handleRemoveProduct = async (productId: string) => {
-    setIsLoading(true)
+    setLoading((prev) => ({ ...prev, [productId]: true }))
     try {
       const result = await removeProductFromCollection(collection.id, productId)
-
       if (result.success) {
+        // Find the product from current products
+        const product = currentProducts.find((p) => p.id === productId)
+        if (product) {
+          // Remove from current products
+          setCurrentProducts((prev) => prev.filter((p) => p.id !== productId))
+          // Add to available products
+          setFilteredProducts((prev) => [...prev, product])
+        }
         toast({
-          title: "Product removed",
-          description: "The product has been removed from the collection.",
+          title: "Success",
+          description: "Product removed from collection",
         })
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to remove product from collection.",
+          description: result.error || "Failed to remove product from collection",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error removing product:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: "An unexpected error occurred",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading((prev) => ({ ...prev, [productId]: false }))
     }
   }
 
@@ -154,128 +177,115 @@ export function CollectionProductManager({
 
   return (
     <div className="space-y-8">
-      <div className="bg-gray-50 p-4 rounded-md">
-        <h2 className="text-lg font-medium mb-4">Add Products to Collection</h2>
-        <div className="space-y-4">
-          <Input
-            placeholder="Search products by name or SKU..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="mb-4"
-          />
-
-          <div className="flex space-x-4">
-            <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a product to add" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredAvailableProducts.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    No products available
-                  </SelectItem>
-                ) : (
-                  filteredAvailableProducts.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} ({product.sku})
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-
-            <Button onClick={handleAddProduct} disabled={!selectedProductId || isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-              Add to Collection
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="text-lg font-medium mb-4">Products in Collection</h2>
-        {sortedProductsInCollection.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-md">
-            <p className="text-gray-500">No products in this collection yet.</p>
-          </div>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Image</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedProductsInCollection.map((product, index) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                      <div className="relative h-12 w-12 overflow-hidden rounded-md">
+      <Card>
+        <CardHeader>
+          <CardTitle>Current Products in Collection</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {currentProducts.length === 0 ? (
+            <p className="text-muted-foreground">No products in this collection yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {currentProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden">
+                      {product.images && product.images.length > 0 ? (
                         <Image
                           src={product.images[0] || "/placeholder.svg"}
                           alt={product.name}
-                          fill
-                          className="object-cover"
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
                         />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell>{product.sku}</TableCell>
-                    <TableCell>
-                      {product.sale_price ? (
-                        <div>
-                          <span className="line-through text-gray-500">{product.price.toFixed(2)} zł</span>
-                          <span className="ml-2 text-red-600">{product.sale_price.toFixed(2)} zł</span>
-                        </div>
                       ) : (
-                        <span>{product.price.toFixed(2)} zł</span>
+                        <div className="w-full h-full bg-gray-200" />
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleMoveProduct(product.id, "up")}
-                          disabled={index === 0 || isLoading}
-                        >
-                          <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleMoveProduct(product.id, "down")}
-                          disabled={index === sortedProductsInCollection.length - 1 || isLoading}
-                        >
-                          <ArrowDown className="h-4 w-4" />
-                        </Button>
+                    </div>
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">{product.price.toFixed(2)} zł</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleRemoveProduct(product.id)}
+                    disabled={loading[product.id] || isLoading}
+                  >
+                    {loading[product.id] || isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Add Products to Collection</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="search">Search Products</Label>
+              <Input
+                id="search"
+                placeholder="Search by product name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <p className="text-muted-foreground">No products available to add.</p>
+            ) : (
+              <div className="space-y-4">
+                {filteredProducts.map((product) => (
+                  <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden">
+                        {product.images && product.images.length > 0 ? (
+                          <Image
+                            src={product.images[0] || "/placeholder.svg"}
+                            alt={product.name}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200" />
+                        )}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600"
-                        onClick={() => handleRemoveProduct(product.id)}
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">{product.price.toFixed(2)} zł</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleAddProduct(product.id)}
+                      disabled={loading[product.id] || isLoading}
+                    >
+                      {loading[product.id] || isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => router.push("/admin/collections")}>

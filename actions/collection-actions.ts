@@ -185,7 +185,7 @@ export async function getFeaturedCollectionProducts(collectionId: string, limit 
       return []
     }
 
-    if (collectionProducts.length === 0) {
+    if (!collectionProducts || collectionProducts.length === 0) {
       return []
     }
 
@@ -378,6 +378,11 @@ export async function removeProductFromCollection(collectionId: string, productI
 
   return { success: true }
 }
+
+// This function is no longer needed since we don't have display_order
+// export async function updateProductDisplayOrder(collectionId: string, productId: string, displayOrder: number) {
+//   // Implementation removed
+// }
 
 export async function getFeaturedProducts() {
   const supabase = getSupabase()
