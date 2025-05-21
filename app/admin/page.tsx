@@ -1,16 +1,20 @@
+import { AdminAuthCheck } from "@/components/admin/admin-auth-check"
 import { AdminDashboardStats } from "@/components/admin/admin-dashboard-stats"
-import { AdminRecentProducts } from "@/components/admin/admin-recent-products"
+import { AdminHeader } from "@/components/admin/admin-header"
 import { AdminRecentOrders } from "@/components/admin/admin-recent-orders"
+import { AdminRecentProducts } from "@/components/admin/admin-recent-products"
 
-export default function AdminDashboard() {
+export default function AdminDashboardPage() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <AdminDashboardStats />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AdminRecentProducts />
-        <AdminRecentOrders />
+    <AdminAuthCheck>
+      <div className="space-y-6">
+        <AdminHeader heading="Dashboard" text="Overview of your store performance" />
+        <AdminDashboardStats />
+        <div className="grid gap-6 md:grid-cols-2">
+          <AdminRecentProducts />
+          <AdminRecentOrders />
+        </div>
       </div>
-    </div>
+    </AdminAuthCheck>
   )
 }

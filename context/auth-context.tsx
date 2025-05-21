@@ -8,6 +8,7 @@ type AuthContextType = {
   user: User | null
   session: Session | null
   isLoading: boolean
+  isAdmin: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signUp: (email: string, password: string) => Promise<{ error: any; data: any }>
   signOut: () => Promise<void>
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [supabaseInitialized, setSupabaseInitialized] = useState(false)
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await supabase.auth.signOut()
             setSession(null)
             setUser(null)
+            setIsAdmin(false)
           }
           setIsLoading(false)
           return
@@ -52,6 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setSession(data.session)
         setUser(data.session?.user ?? null)
+
+        // Check admin status if user is logged in
+        if (data.session?.user) {
+          await checkAdminStatus(data.session.user)
+        }
       } catch (err) {
         console.error("Unexpected error during auth initialization:", err)
       } finally {
@@ -70,6 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setSession(newSession)
         setUser(newSession?.user ?? null)
+
+        // Check admin status if user is logged in
+        if (newSession?.user) {
+          await checkAdminStatus(newSession.user)
+        } else {
+          setIsAdmin(false)
+        }
       } catch (err) {
         console.error("Error in auth state change handler:", err)
       } finally {
@@ -81,6 +96,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe()
     }
   }, [])
+
+  // Check if user is admin
+  const checkAdminStatus = async (user: User) => {
+    if (!user) {
+      setIsAdmin(false)
+      return
+    }
+
+    // Hardcoded admin check
+    if (user.email === "hubciolandos@gmail.com") {
+      setIsAdmin(true)
+      return
+    }
+
+    try {
+      const supabase = getSupabase()
+      if (!supabase) {
+        setIsAdmin(false)
+        return
+      }
+
+      const { data, error } = await supabase.from("users").select("is_admin").eq("id", user.id).single()
+
+      if (error) {
+        console.error("Error checking admin status:", error)
+        setIsAdmin(false)
+        return
+      }
+
+      setIsAdmin(data?.is_admin === true)
+    } catch (error) {
+      console.error("Unexpected error checking admin status:", error)
+      setIsAdmin(false)
+    }
+  }
 
   const signIn = async (email: string, password: string) => {
     const supabase = getSupabase()
@@ -106,6 +156,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: data.user.email,
           })
         }
+
+        // Check admin status
+        await checkAdminStatus(data.user)
       }
 
       return { error }
@@ -129,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.from("users").insert({
           id: data.user.id,
           email: data.user.email,
+          is_admin: false, // Default to non-admin
         })
       }
 
@@ -149,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 1. Najpierw wyczyść stan React
       setUser(null)
       setSession(null)
+      setIsAdmin(false)
 
       // 2. Wyczyść pamięć lokalną i ciasteczka
       if (typeof window !== "undefined") {
@@ -219,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: null,
           session: null,
           isLoading: false,
+          isAdmin: false,
           signIn: async () => ({ error: { message: "Supabase client not initialized" } }),
           signUp: async () => ({ error: { message: "Supabase client not initialized" }, data: null }),
           signOut: async () => {},
@@ -236,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         isLoading,
+        isAdmin,
         signIn,
         signUp,
         signOut,
