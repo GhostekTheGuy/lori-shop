@@ -12,7 +12,6 @@ export type Collection = {
   description: string | null
   hero_image: string | null
   created_at: string
-  // Remove published field
 }
 
 export type CollectionFormData = {
@@ -21,7 +20,6 @@ export type CollectionFormData = {
   slug: string
   description: string
   hero_image: string
-  // Remove published field
 }
 
 export type CollectionWithProducts = Collection & {
@@ -62,7 +60,6 @@ export async function getPublishedCollections() {
     return []
   }
 
-  // Remove the filter for published column since it doesn't exist
   const { data, error } = await supabase.from("collections").select("*").order("created_at", { ascending: false })
 
   if (error) {
@@ -81,7 +78,6 @@ export async function getFeaturedCollections() {
     return []
   }
 
-  // Remove the filter for published column since it doesn't exist
   const { data, error } = await supabase
     .from("collections")
     .select("*")
@@ -137,9 +133,8 @@ export async function getCollectionWithProducts(slug: string) {
   // Then get the products for this collection
   const { data: collectionProducts, error: productsError } = await supabase
     .from("collection_products")
-    .select("product_id, display_order")
+    .select("product_id")
     .eq("collection_id", collection.id)
-    .order("display_order", { ascending: true })
 
   if (productsError) {
     console.error("Error fetching collection products:", productsError)
@@ -163,12 +158,9 @@ export async function getCollectionWithProducts(slug: string) {
     return { ...collection, products: [] }
   }
 
-  // Sort products according to the display_order
-  const sortedProducts = productIds.map((id) => products.find((p) => p.id === id)).filter(Boolean)
-
   return {
     ...collection,
-    products: sortedProducts,
+    products: products,
   } as CollectionWithProducts
 }
 
@@ -180,40 +172,41 @@ export async function getFeaturedCollectionProducts(collectionId: string, limit 
     return []
   }
 
-  // Get the products for this collection with limit
-  const { data: collectionProducts, error: productsError } = await supabase
-    .from("collection_products")
-    .select("product_id, display_order")
-    .eq("collection_id", collectionId)
-    .order("display_order", { ascending: true })
-    .limit(limit)
+  try {
+    // Get the products for this collection with limit
+    const { data: collectionProducts, error: productsError } = await supabase
+      .from("collection_products")
+      .select("product_id")
+      .eq("collection_id", collectionId)
+      .limit(limit)
 
-  if (productsError) {
-    console.error("Error fetching collection products:", productsError)
+    if (productsError) {
+      console.error("Error fetching collection products:", productsError)
+      return []
+    }
+
+    if (collectionProducts.length === 0) {
+      return []
+    }
+
+    // Get the actual product details
+    const productIds = collectionProducts.map((cp) => cp.product_id)
+    const { data: products, error: productDetailsError } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", productIds)
+      .eq("published", true)
+
+    if (productDetailsError) {
+      console.error("Error fetching product details:", productDetailsError)
+      return []
+    }
+
+    return products || []
+  } catch (error) {
+    console.error("Error in getFeaturedCollectionProducts:", error)
     return []
   }
-
-  if (collectionProducts.length === 0) {
-    return []
-  }
-
-  // Get the actual product details
-  const productIds = collectionProducts.map((cp) => cp.product_id)
-  const { data: products, error: productDetailsError } = await supabase
-    .from("products")
-    .select("*")
-    .in("id", productIds)
-    .eq("published", true)
-
-  if (productDetailsError) {
-    console.error("Error fetching product details:", productDetailsError)
-    return []
-  }
-
-  // Sort products according to the display_order
-  const sortedProducts = productIds.map((id) => products.find((p) => p.id === id)).filter(Boolean)
-
-  return sortedProducts
 }
 
 // Create a new collection
@@ -232,7 +225,6 @@ export async function createCollection(formData: CollectionFormData) {
     slug: formData.slug,
     description: formData.description,
     hero_image: formData.hero_image,
-    // Remove published field
   })
 
   if (error) {
@@ -266,7 +258,6 @@ export async function updateCollection(formData: CollectionFormData) {
       slug: formData.slug,
       description: formData.description,
       hero_image: formData.hero_image,
-      // Remove published field
     })
     .eq("id", formData.id)
 
@@ -307,17 +298,34 @@ export async function deleteCollection(id: string) {
 }
 
 // Add product to collection
-export async function addProductToCollection(collectionId: string, productId: string, displayOrder = 0) {
+export async function addProductToCollection(collectionId: string, productId: string) {
   const supabase = getSupabase()
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" }
   }
 
+  // Check if the relationship already exists
+  const { data: existing, error: checkError } = await supabase
+    .from("collection_products")
+    .select("*")
+    .eq("collection_id", collectionId)
+    .eq("product_id", productId)
+    .maybeSingle()
+
+  if (checkError) {
+    console.error("Error checking existing product in collection:", checkError)
+    return { success: false, error: checkError.message }
+  }
+
+  // If relationship already exists, return success
+  if (existing) {
+    return { success: true }
+  }
+
+  // Add the product to the collection
   const { error } = await supabase.from("collection_products").insert({
-    id: uuidv4(),
     collection_id: collectionId,
     product_id: productId,
-    display_order: displayOrder,
   })
 
   if (error) {
@@ -354,38 +362,6 @@ export async function removeProductFromCollection(collectionId: string, productI
 
   if (error) {
     console.error("Error removing product from collection:", error)
-    return { success: false, error: error.message }
-  }
-
-  // Get the collection slug for path revalidation
-  const { data: collection } = await supabase.from("collections").select("slug").eq("id", collectionId).single()
-
-  // Revalidate paths
-  revalidatePath("/admin/collections")
-  if (collection) {
-    revalidatePath(`/kolekcje/${collection.slug}`)
-  }
-  revalidatePath("/kolekcje")
-  revalidatePath("/")
-
-  return { success: true }
-}
-
-// Update product display order in collection
-export async function updateProductDisplayOrder(collectionId: string, productId: string, displayOrder: number) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    return { success: false, error: "Supabase client not initialized" }
-  }
-
-  const { error } = await supabase
-    .from("collection_products")
-    .update({ display_order: displayOrder })
-    .eq("collection_id", collectionId)
-    .eq("product_id", productId)
-
-  if (error) {
-    console.error("Error updating product display order:", error)
     return { success: false, error: error.message }
   }
 
