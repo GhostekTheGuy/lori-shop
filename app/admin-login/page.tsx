@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, ShieldAlert, Lock } from "lucide-react"
+import { getSupabaseClient } from "@/lib/supabase"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
@@ -20,12 +21,76 @@ export default function AdminLoginPage() {
   const { signIn, signOut } = useAuth()
   const router = useRouter()
 
+  // Check if we're already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const supabase = getSupabaseClient()
+      if (!supabase) return
+
+      const { data } = await supabase.auth.getSession()
+      if (data.session) {
+        console.log("Already logged in, checking admin status...")
+        checkAdminStatus()
+      }
+    }
+
+    checkSession()
+  }, [])
+
+  const checkAdminStatus = async () => {
+    try {
+      setIsLoading(true)
+
+      // Force a refresh of the session token before checking admin status
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        await supabase.auth.refreshSession()
+      }
+
+      const response = await fetch("/api/check-admin", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Error checking admin status")
+      }
+
+      const data = await response.json()
+      console.log("Admin check response:", data)
+
+      if (data.isAdmin) {
+        // Redirect to admin panel
+        router.push("/admin")
+      } else {
+        // User is not an admin
+        setError("Brak uprawnień administratora. Dostęp zabroniony.")
+        // Log out non-admin user
+        await signOut()
+      }
+    } catch (err: any) {
+      console.error("Admin check error:", err)
+      setError(`Wystąpił błąd podczas weryfikacji uprawnień administratora: ${err.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
 
     try {
+      // First, sign out to clear any existing sessions
+      await signOut()
+
+      // Then sign in with the provided credentials
       const { error: signInError } = await signIn(email, password)
 
       if (signInError) {
@@ -37,33 +102,10 @@ export default function AdminLoginPage() {
       // Add a console log to help with debugging
       console.log("Sign in successful, checking admin status...")
 
-      try {
-        const response = await fetch("/api/check-admin")
+      // Wait a moment for the session to be established
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || "Error checking admin status")
-        }
-
-        const data = await response.json()
-        console.log("Admin check response:", data)
-
-        if (data.isAdmin) {
-          // Redirect to admin panel
-          router.push("/admin")
-        } else {
-          // User is not an admin
-          setError("Brak uprawnień administratora. Dostęp zabroniony.")
-          // Log out non-admin user
-          await signOut()
-        }
-      } catch (err: any) {
-        console.error("Admin check error:", err)
-        setError(`Wystąpił błąd podczas weryfikacji uprawnień administratora: ${err.message}`)
-        // Don't sign out on error, allow retry
-      } finally {
-        setIsLoading(false)
-      }
+      await checkAdminStatus()
     } catch (err: any) {
       console.error("Unexpected error during login:", err)
       setError(`Wystąpił nieoczekiwany błąd: ${err.message}`)

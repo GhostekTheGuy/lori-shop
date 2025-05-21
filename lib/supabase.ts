@@ -1,9 +1,35 @@
 import { createClient } from "@supabase/supabase-js"
+import type { Database as DB } from "@/types/supabase"
 
-// Singleton pattern to avoid multiple instances
-let supabaseClient: any = null
+// Client-side Supabase client (singleton pattern)
+let supabaseClient: ReturnType<typeof createClient> | null = null
 let supabaseAdminClient: any = null
 
+export function getSupabaseClient() {
+  if (supabaseClient) return supabaseClient
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase environment variables")
+    return null
+  }
+
+  supabaseClient = createClient<DB>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      storageKey: "phenotype-store-auth",
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "pkce", // More secure flow type
+    },
+  })
+
+  return supabaseClient
+}
+
+// Server-side Supabase client
 export function getSupabase(useServiceRole = false) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = useServiceRole ? process.env.SUPABASE_SERVICE_ROLE_KEY : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -24,17 +50,11 @@ export function getSupabase(useServiceRole = false) {
     }
     return supabaseAdminClient
   } else {
-    if (!supabaseClient) {
-      supabaseClient = createClient(supabaseUrl, supabaseKey, {
-        auth: {
-          persistSession: true,
-          storageKey: "phenotype-store-auth",
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        },
-      })
-    }
-    return supabaseClient
+    return createClient<DB>(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false, // Don't persist session on server
+      },
+    })
   }
 }
 

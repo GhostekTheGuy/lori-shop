@@ -7,10 +7,20 @@ export async function GET() {
     const cookieStore = cookies()
     const supabase = getSupabase()
 
+    if (!supabase) {
+      return NextResponse.json({ isAdmin: false, message: "Supabase client not initialized" }, { status: 500 })
+    }
+
     // Get user session from cookies
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("API: Session error:", sessionError)
+      return NextResponse.json({ isAdmin: false, message: `Session error: ${sessionError.message}` }, { status: 401 })
+    }
 
     if (!session || !session.user) {
       console.log("API: No active session found")

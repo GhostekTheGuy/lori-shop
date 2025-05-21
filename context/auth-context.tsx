@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { getSupabase } from "@/lib/supabase"
+import { getSupabaseClient } from "@/lib/supabase"
 import type { User, Session } from "@supabase/supabase-js"
 
 type AuthContextType = {
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check if Supabase is available
-    const supabase = getSupabase()
+    const supabase = getSupabaseClient()
     if (!supabase) {
       console.error("Supabase client not initialized")
       setIsLoading(false)
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const supabase = getSupabase()
+    const supabase = getSupabaseClient()
     if (!supabase) {
       setIsAdmin(false)
       return
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signIn = async (email: string, password: string) => {
-    const supabase = getSupabase()
+    const supabase = getSupabaseClient()
     if (!supabase) {
       return { error: { message: "Supabase client not initialized" } }
     }
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string) => {
-    const supabase = getSupabase()
+    const supabase = getSupabaseClient()
     if (!supabase) {
       return { error: { message: "Supabase client not initialized" }, data: null }
     }
@@ -185,56 +185,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    const supabase = getSupabase()
-    if (supabase) {
-      try {
-        console.log("Signing out...")
+    const supabase = getSupabaseClient()
+    if (!supabase) return
 
-        // 1. Clear all local storage related to Supabase
-        if (typeof window !== "undefined") {
-          // Clear specific Supabase storage items
-          const storageKey = "phenotype-store-auth"
-          localStorage.removeItem(storageKey)
-          localStorage.removeItem(`${storageKey}-token`)
+    try {
+      console.log("Signing out...")
 
-          // Clear any session cookies
-          document.cookie.split(";").forEach((c) => {
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
-          })
-        }
+      // 1. Clear React state first
+      setUser(null)
+      setSession(null)
+      setIsAdmin(false)
 
-        // 2. Call Supabase signOut with scope: 'global' to clear all sessions
-        await supabase.auth.signOut({ scope: "global" })
+      // 2. Call Supabase signOut with scope: 'global' to clear all sessions
+      const { error } = await supabase.auth.signOut({ scope: "global" })
 
-        // 3. Clear React state
-        setUser(null)
-        setSession(null)
-        setIsAdmin(false)
+      if (error) {
+        console.error("Error during sign out:", error)
+      }
 
-        console.log("Sign out successful")
+      // 3. Clear browser storage
+      if (typeof window !== "undefined") {
+        // Clear specific Supabase storage items
+        const storageKey = "phenotype-store-auth"
+        localStorage.removeItem(storageKey)
+        localStorage.removeItem(`${storageKey}-token`)
 
-        // 4. Force a hard reload with cache clearing
-        if (typeof window !== "undefined") {
-          // Add a timestamp to prevent caching
-          window.location.href = `/?logout=${Date.now()}`
-        }
-      } catch (err) {
-        console.error("Error during sign out:", err)
+        // Clear session cookies
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/;domain=${window.location.hostname}`)
+        })
+      }
 
-        // Even if there's an error, clear state and force reload
-        setUser(null)
-        setSession(null)
-        setIsAdmin(false)
+      console.log("Sign out successful")
 
-        if (typeof window !== "undefined") {
-          window.location.href = `/?logout=${Date.now()}`
-        }
+      // 4. Force a hard reload with cache clearing
+      if (typeof window !== "undefined") {
+        // Add a timestamp to prevent caching
+        window.location.href = `/?logout=${Date.now()}`
+      }
+    } catch (err) {
+      console.error("Error during sign out:", err)
+
+      // Even if there's an error, force reload
+      if (typeof window !== "undefined") {
+        window.location.href = `/?logout=${Date.now()}`
       }
     }
   }
 
   const resetPassword = async (email: string) => {
-    const supabase = getSupabase()
+    const supabase = getSupabaseClient()
     if (!supabase) {
       return { error: { message: "Supabase client not initialized" } }
     }
