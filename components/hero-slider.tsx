@@ -45,7 +45,7 @@ export default function HeroSlider({ slides }: HeroSliderProps) {
   }
 
   return (
-    <div className="relative w-full h-[500px] md:h-[600px] overflow-hidden">
+    <div className="relative w-full h-[500px] md:h-[720px] overflow-hidden">
       {slides.map((slide, index) => (
         <div
           key={slide.id}
