@@ -6,24 +6,31 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Formats a number as a currency string in Polish Złoty (PLN)
- * @param amount - The amount to format
- * @returns A formatted currency string (e.g., "123,45 zł")
+ * Formats a number as currency
+ * @param value - The number to format
+ * @param currency - The currency code (default: PLN)
+ * @returns Formatted currency string
  */
-export function formatCurrency(amount: number): string {
+export function formatCurrency(value: number, currency = "PLN"): string {
   return new Intl.NumberFormat("pl-PL", {
     style: "currency",
-    currency: "PLN",
+    currency,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
+  }).format(value)
 }
 
-export function slugify(str: string): string {
-  return str
+/**
+ * Converts a string to a URL-friendly slug
+ * @param text - The text to convert to a slug
+ * @returns URL-friendly slug
+ */
+export function slugify(text: string): string {
+  return text
+    .toString()
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "") // Remove non-word [a-zA-Z0-9_], non-space, non-hyphen
-    .replace(/[\s_-]+/g, "-") // Replace groups of spaces, underscores, or hyphens with single hyphen
-    .replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/&/g, "-and-") // Replace & with 'and'
+    .replace(/[^\w-]+/g, "") // Remove all non-word characters
+    .replace(/--+/g, "-") // Replace multiple - with single -
 }
