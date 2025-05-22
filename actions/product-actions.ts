@@ -29,7 +29,8 @@ export type Product = {
   description: string
   price: number
   sale_price: number | null
-  category: string
+  category_id?: string
+  category?: string
   stock_status: "in-stock" | "low-stock" | "sold-out"
   stock_quantity: number | null
   images: string[]
@@ -214,35 +215,63 @@ export async function createProduct(formData: ProductFormData) {
   // Generate a unique ID if not provided
   const productId = formData.id || uuidv4()
 
-  const { error } = await supabase.from("products").insert({
-    id: productId,
-    name: formData.name,
-    description: formData.description,
-    price: formData.price,
-    sale_price: formData.salePrice,
-    category: formData.category,
-    stock_status: formData.stockStatus,
-    stock_quantity: formData.stockQuantity,
-    images: formData.images,
-    tags: formData.tags,
-    featured: formData.featured,
-    published: formData.published,
-    sku: formData.sku,
-    sizes: formData.sizes,
-    colors: formData.colors,
-  })
+  try {
+    // First, check if we need to convert category to category_id
+    let categoryId = null
+    if (formData.category) {
+      // Check if categories table exists and try to find the category
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", formData.category)
+        .single()
 
-  if (error) {
-    console.error("Error creating product:", error)
+      if (!categoryError && categoryData) {
+        categoryId = categoryData.id
+      }
+    }
+
+    // Prepare product data, checking which fields exist in the database
+    const productData: any = {
+      id: productId,
+      name: formData.name,
+      description: formData.description,
+      price: formData.price,
+      sale_price: formData.salePrice,
+      stock_status: formData.stockStatus,
+      stock_quantity: formData.stockQuantity,
+      images: formData.images,
+      tags: formData.tags,
+      featured: formData.featured,
+      published: formData.published,
+      sku: formData.sku,
+      sizes: formData.sizes,
+      colors: formData.colors,
+    }
+
+    // Add category_id if we found one
+    if (categoryId) {
+      productData.category_id = categoryId
+    }
+
+    // Try to add the product
+    const { error } = await supabase.from("products").insert(productData)
+
+    if (error) {
+      console.error("Error creating product:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Revalidate the products page to show the new product
+    revalidatePath("/admin/products")
+    revalidatePath("/sklep")
+    revalidatePath("/")
+
+    return { success: true, productId }
+  } catch (error: any) {
+    console.error("Error in createProduct:", error)
     return { success: false, error: error.message }
   }
-
-  // Revalidate the products page to show the new product
-  revalidatePath("/admin/products")
-  revalidatePath("/sklep")
-  revalidatePath("/")
-
-  return { success: true, productId }
 }
 
 // Update an existing product
@@ -256,14 +285,28 @@ export async function updateProduct(formData: ProductFormData) {
     return { success: false, error: "Product ID is required" }
   }
 
-  const { error } = await supabase
-    .from("products")
-    .update({
+  try {
+    // First, check if we need to convert category to category_id
+    let categoryId = null
+    if (formData.category) {
+      // Check if categories table exists and try to find the category
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", formData.category)
+        .single()
+
+      if (!categoryError && categoryData) {
+        categoryId = categoryData.id
+      }
+    }
+
+    // Prepare product data, checking which fields exist in the database
+    const productData: any = {
       name: formData.name,
       description: formData.description,
       price: formData.price,
       sale_price: formData.salePrice,
-      category: formData.category,
       stock_status: formData.stockStatus,
       stock_quantity: formData.stockQuantity,
       images: formData.images,
@@ -273,21 +316,31 @@ export async function updateProduct(formData: ProductFormData) {
       sku: formData.sku,
       sizes: formData.sizes,
       colors: formData.colors,
-    })
-    .eq("id", formData.id)
+    }
 
-  if (error) {
-    console.error("Error updating product:", error)
+    // Add category_id if we found one
+    if (categoryId) {
+      productData.category_id = categoryId
+    }
+
+    const { error } = await supabase.from("products").update(productData).eq("id", formData.id)
+
+    if (error) {
+      console.error("Error updating product:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Revalidate the products page to show the updated product
+    revalidatePath("/admin/products")
+    revalidatePath(`/product/${formData.id}`)
+    revalidatePath("/sklep")
+    revalidatePath("/")
+
+    return { success: true, productId: formData.id }
+  } catch (error: any) {
+    console.error("Error in updateProduct:", error)
     return { success: false, error: error.message }
   }
-
-  // Revalidate the products page to show the updated product
-  revalidatePath("/admin/products")
-  revalidatePath(`/product/${formData.id}`)
-  revalidatePath("/sklep")
-  revalidatePath("/")
-
-  return { success: true, productId: formData.id }
 }
 
 // Delete a product

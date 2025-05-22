@@ -1,14 +1,27 @@
+import { getProductById } from "@/actions/product-actions"
 import { AdminProductForm } from "@/components/admin/admin-product-form"
-import { getProductById } from "@/lib/products"
+import { AdminAuthCheck } from "@/components/admin/admin-auth-check"
 
-export default function EditProduct({ params }: { params: { id: string } }) {
-  // In a real app, you would fetch the product data from your database
-  const product = getProductById(params.id)
+export default async function EditProductPage({ params }: { params: { id: string } }) {
+  const product = await getProductById(params.id)
+
+  if (!product) {
+    return (
+      <AdminAuthCheck>
+        <div className="container py-8">
+          <h1 className="text-2xl font-bold mb-6">Product Not Found</h1>
+          <p>The product you are trying to edit does not exist.</p>
+        </div>
+      </AdminAuthCheck>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Edit Product</h1>
-      <AdminProductForm product={product} />
-    </div>
+    <AdminAuthCheck>
+      <div className="container py-8">
+        <h1 className="text-2xl font-bold mb-6">Edit Product</h1>
+        <AdminProductForm product={product} />
+      </div>
+    </AdminAuthCheck>
   )
 }

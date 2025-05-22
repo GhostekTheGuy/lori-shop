@@ -8,11 +8,11 @@ import {
   ShoppingCart,
   Users,
   Tag,
-  Settings,
   LogOut,
   ChevronDown,
   ChevronRight,
   Layers,
+  ImageIcon,
 } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/context/auth-context"
@@ -23,6 +23,7 @@ export function AdminSidebar() {
   const { user } = useAuth()
   const [isProductsOpen, setIsProductsOpen] = useState(pathname?.startsWith("/admin/products"))
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(pathname?.startsWith("/admin/collections"))
+  const [isHeroSlidesOpen, setIsHeroSlidesOpen] = useState(pathname?.startsWith("/admin/hero-slides"))
 
   const toggleProducts = () => {
     setIsProductsOpen(!isProductsOpen)
@@ -30,6 +31,10 @@ export function AdminSidebar() {
 
   const toggleCollections = () => {
     setIsCollectionsOpen(!isCollectionsOpen)
+  }
+
+  const toggleHeroSlides = () => {
+    setIsHeroSlidesOpen(!isHeroSlidesOpen)
   }
 
   const isActive = (path: string) => {
@@ -152,6 +157,48 @@ export function AdminSidebar() {
             )}
           </div>
 
+          {/* Hero Slides dropdown */}
+          <div>
+            <button
+              onClick={toggleHeroSlides}
+              className={`w-full flex items-center justify-between px-2 py-2 text-sm font-medium rounded-md ${
+                pathname?.startsWith("/admin/hero-slides")
+                  ? "text-indigo-600 bg-indigo-50"
+                  : "text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center">
+                <ImageIcon className="mr-3 h-5 w-5" />
+                Hero Slides
+              </div>
+              {isHeroSlidesOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+            {isHeroSlidesOpen && (
+              <div className="pl-10 space-y-1 mt-1">
+                <Link
+                  href="/admin/hero-slides"
+                  className={`block px-2 py-1.5 text-sm rounded-md ${
+                    isActive("/admin/hero-slides")
+                      ? "text-indigo-600 bg-indigo-50"
+                      : "text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
+                  }`}
+                >
+                  All Slides
+                </Link>
+                <Link
+                  href="/admin/hero-slides/add"
+                  className={`block px-2 py-1.5 text-sm rounded-md ${
+                    isActive("/admin/hero-slides/add")
+                      ? "text-indigo-600 bg-indigo-50"
+                      : "text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Add Slide
+                </Link>
+              </div>
+            )}
+          </div>
+
           <Link
             href="/admin/orders"
             className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
@@ -186,18 +233,6 @@ export function AdminSidebar() {
           >
             <Tag className="mr-3 h-5 w-5" />
             Categories
-          </Link>
-
-          <Link
-            href="/admin/settings"
-            className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-              pathname?.startsWith("/admin/settings")
-                ? "text-indigo-600 bg-indigo-50"
-                : "text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
-            }`}
-          >
-            <Settings className="mr-3 h-5 w-5" />
-            Settings
           </Link>
         </nav>
       </div>

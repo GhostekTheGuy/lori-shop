@@ -4,15 +4,17 @@ import { ProductCard } from "@/components/product-card"
 import { CartDrawer } from "@/components/cart-drawer"
 import { getFeaturedProducts, getFeaturedCollections } from "@/actions/collection-actions"
 import { ProductCardSkeleton } from "@/components/product-card-skeleton"
-import HomeClient from "@/components/home-client"
-import FeaturedCollection from "@/components/featured-collection"
 import { Loader2 } from "lucide-react"
+import FeaturedCollection from "@/components/featured-collection"
+import { getActiveHeroSlides } from "@/actions/hero-slide-actions"
 import HeroSlider from "@/components/hero-slider"
+import HomeClient from "@/components/home-client"
 
 // Update the home page to handle the case where we can't filter by featured collections
 export default async function Home() {
   const featuredProducts = await getFeaturedProducts()
   const featuredCollections = await getFeaturedCollections() // This now returns published collections
+  const heroSlides = await getActiveHeroSlides()
 
   return (
     <>
@@ -20,7 +22,7 @@ export default async function Home() {
       <CartDrawer />
 
       {/* Zastąpienie statycznego hero slajderem */}
-      <HeroSlider />
+      <HeroSlider slides={heroSlides} />
 
       <main className="container mx-auto py-8">
         <h2 className="text-2xl font-bold mb-6">Featured Products</h2>
