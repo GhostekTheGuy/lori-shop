@@ -16,7 +16,7 @@ export function ProductImageZoom({ src, alt }: ProductImageZoomProps) {
   const imageRef = useRef<HTMLDivElement>(null)
 
   const magnifierSize = 200
-  const zoomLevel = 2.5
+  const zoomLevel = 8.5
 
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
     if (imageRef.current) {

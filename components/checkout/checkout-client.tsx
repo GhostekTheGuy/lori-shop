@@ -11,9 +11,11 @@ import { PaymentForm } from "@/components/checkout/payment-form"
 import { CheckoutSummary } from "@/components/checkout/checkout-summary"
 import { Navbar } from "@/components/navbar"
 import { CartDrawer } from "@/components/cart-drawer"
-import { Loader2, AlertTriangle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, CreditCard, Truck, AlertTriangle } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { getStripePublic } from "@/lib/stripe"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function CheckoutClient() {
   const { items, subtotal, clearCart } = useCart()
@@ -21,6 +23,7 @@ export default function CheckoutClient() {
   const router = useRouter()
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "cash_on_delivery">("stripe")
   const [shippingAddress, setShippingAddress] = useState({
     firstName: "",
     lastName: "",
@@ -68,7 +71,7 @@ export default function CheckoutClient() {
         items,
         shippingAddress: formData,
         total: subtotal,
-        paymentMethod: "stripe",
+        paymentMethod: paymentMethod,
         isPreviewEnvironment: isPreviewEnvironment,
       })
 
@@ -78,11 +81,16 @@ export default function CheckoutClient() {
 
       setOrderId(result.orderId || null)
 
-      if (result.clientSecret) {
-        setClientSecret(result.clientSecret)
-        setCurrentStep("payment")
+      if (paymentMethod === "stripe") {
+        if (result.clientSecret) {
+          setClientSecret(result.clientSecret)
+          setCurrentStep("payment")
+        } else {
+          throw new Error("No client secret returned for Stripe payment")
+        }
       } else {
-        throw new Error("No client secret returned for Stripe payment")
+        // For cash on delivery, go directly to success page
+        handlePaymentSuccess()
       }
     } catch (error) {
       console.error("Checkout error:", error)
@@ -92,10 +100,30 @@ export default function CheckoutClient() {
     }
   }
 
+  // Handle payment method change
+  const handlePaymentMethodChange = (method: "stripe" | "cash_on_delivery") => {
+    setPaymentMethod(method)
+  }
+
   // Handle successful payment
   const handlePaymentSuccess = () => {
     clearCart()
     router.push("/checkout/success")
+  }
+
+  // Handle cash on delivery
+  const handleCashOnDelivery = async () => {
+    setIsProcessing(true)
+
+    try {
+      // We already created the order, just redirect to success
+      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate processing
+      handlePaymentSuccess()
+    } catch (error) {
+      console.error("Error processing cash on delivery:", error)
+      alert("Wystąpił błąd. Spróbuj ponownie.")
+      setIsProcessing(false)
+    }
   }
 
   if (authLoading || (items.length === 0 && !orderId)) {
@@ -129,6 +157,19 @@ export default function CheckoutClient() {
                 <h2 className="text-xl font-semibold mb-4">Dane dostawy</h2>
                 <p className="text-gray-600 mb-6">Wprowadź dane potrzebne do realizacji zamówienia.</p>
 
+                <Tabs defaultValue={paymentMethod} onValueChange={(value) => handlePaymentMethodChange(value as any)}>
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="stripe" className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Płatność online
+                    </TabsTrigger>
+                    <TabsTrigger value="cash_on_delivery" className="flex items-center gap-2">
+                      <Truck className="h-4 w-4" />
+                      Płatność przy odbiorze
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
                 <AddressForm onSubmitAddress={handleCheckout} isProcessing={isProcessing} />
               </div>
             ) : clientSecret ? (
@@ -151,7 +192,28 @@ export default function CheckoutClient() {
                   <PaymentForm onSuccess={handlePaymentSuccess} />
                 </div>
               </Elements>
-            ) : null}
+            ) : (
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h2 className="text-xl font-semibold mb-4">Płatność przy odbiorze</h2>
+                <p className="text-gray-600 mb-6">
+                  Wybrałeś płatność przy odbiorze. Zapłacisz kurierowi przy dostawie zamówienia.
+                </p>
+                <Button
+                  onClick={handleCashOnDelivery}
+                  className="w-full bg-black hover:bg-gray-800 text-white"
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Przetwarzanie...
+                    </>
+                  ) : (
+                    "Potwierdź zamówienie"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-1">
