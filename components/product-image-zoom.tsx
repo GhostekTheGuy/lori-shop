@@ -15,6 +15,9 @@ export function ProductImageZoom({ src, alt }: ProductImageZoomProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const imageRef = useRef<HTMLDivElement>(null)
 
+  const magnifierSize = 200
+  const zoomLevel = 2.5
+
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
     if (imageRef.current) {
       const { left, top, width, height } = imageRef.current.getBoundingClientRect()
@@ -23,7 +26,10 @@ export function ProductImageZoom({ src, alt }: ProductImageZoomProps) {
       const x = (e.clientX - left) / width
       const y = (e.clientY - top) / height
 
-      setMousePosition({ x, y })
+      setMousePosition({
+        x: Math.max(0, Math.min(1, x)),
+        y: Math.max(0, Math.min(1, y)),
+      })
     }
   }
 
@@ -62,16 +68,22 @@ export function ProductImageZoom({ src, alt }: ProductImageZoomProps) {
           <Search className="h-5 w-5 text-gray-700" />
         </div>
 
-        {/* Zoom overlay */}
+        {/* Magnifier overlay */}
         {showMagnifier && (
           <div
-            className="absolute pointer-events-none bg-white/10 border border-gray-200"
+            className="absolute pointer-events-none border-2 border-white shadow-lg"
             style={{
               left: `${mousePosition.x * 100}%`,
               top: `${mousePosition.y * 100}%`,
-              width: "150px",
-              height: "150px",
+              width: `${magnifierSize}px`,
+              height: `${magnifierSize}px`,
               transform: "translate(-50%, -50%)",
+              backgroundImage: `url(${src || "/placeholder.svg"})`,
+              backgroundSize: `${100 * zoomLevel}% ${100 * zoomLevel}%`,
+              backgroundPosition: `${mousePosition.x * 100}% ${mousePosition.y * 100}%`,
+              backgroundRepeat: "no-repeat",
+              borderRadius: "8px",
+              zIndex: 10,
             }}
           />
         )}
