@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Formats a number as currency
+ * Format a number as a currency string
  * @param value - The number to format
  * @param currency - The currency code (default: PLN)
  * @returns Formatted currency string
@@ -14,14 +14,15 @@ export function cn(...inputs: ClassValue[]) {
 export function formatCurrency(value: number, currency = "PLN"): string {
   return new Intl.NumberFormat("pl-PL", {
     style: "currency",
-    currency,
+    currency: currency,
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value)
 }
 
 /**
- * Converts a string to a URL-friendly slug
- * @param text - The text to convert to a slug
+ * Convert a string to a URL-friendly slug
+ * @param text - The string to convert
  * @returns URL-friendly slug
  */
 export function slugify(text: string): string {
