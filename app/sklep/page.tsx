@@ -5,6 +5,7 @@ import { CartDrawer } from "@/components/cart-drawer"
 import { Button } from "@/components/ui/button"
 import { getProducts } from "@/actions/product-actions"
 import { ProductCardSkeleton } from "@/components/product-card-skeleton"
+import { Footer } from "@/components/footer"
 
 export default async function ShopPage() {
   const products = await getProducts()
@@ -157,6 +158,7 @@ export default async function ShopPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </>
   )
 }

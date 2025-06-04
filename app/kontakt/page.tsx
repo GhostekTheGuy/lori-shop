@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Instagram, Facebook, ArrowRight } from "lucide-react"
+import { Footer } from "@/components/footer"
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -215,96 +215,7 @@ Jeżeli piszesz w sprawie złożonego zamówienia, podaj proszę jego numer."
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white py-10 border-t border-gray-100">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between">
-            {/* Logo and Newsletter Section */}
-            <div className="mb-10 md:mb-0 md:w-1/3">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold">LORI</h2>
-              </div>
-              <p className="text-sm mb-6 max-w-md">
-                Subskrybuj aby na bieżąco otrzymywać zapowiedzi, informacje o nowych kolekcjach i przecenach.
-              </p>
-              <div className="space-y-4">
-                <Input type="text" placeholder="Imię" className="border-b border-gray-300 rounded-none px-3" />
-                <Input type="email" placeholder="Email" className="border-b border-gray-300 rounded-none px-3" />
-                <Button className="w-full bg-black text-white hover:bg-gray-800">
-                  Subskrybuj <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex space-x-4 mt-6">
-                <a href="#" className="text-black hover:text-gray-600">
-                  <Instagram size={20} />
-                </a>
-                <a href="#" className="text-black hover:text-gray-600">
-                  <Facebook size={20} />
-                </a>
-              </div>
-            </div>
-
-            {/* Site Map Section */}
-            <div className="mb-10 md:mb-0">
-              <h3 className="font-semibold text-base mb-4">Mapa strony</h3>
-              <ul className="space-y-4">
-                <li>
-                  <a href="/" className="text-sm hover:underline">
-                    Strona Główna
-                  </a>
-                </li>
-                <li>
-                  <a href="/sklep" className="text-sm hover:underline">
-                    Sklep
-                  </a>
-                </li>
-                <li>
-                  <a href="/kontakt" className="text-sm hover:underline">
-                    Kontakt
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Customer Service Section */}
-            <div>
-              <h3 className="font-semibold text-base mb-4">Obsługa klienta</h3>
-              <ul className="space-y-4">
-                <li>
-                  <a href="#" className="text-sm hover:underline">
-                    Dostawa i płatność
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm hover:underline">
-                    Zwroty i reklamacje
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm hover:underline">
-                    Regulamin
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm hover:underline">
-                    FAQ
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm hover:underline">
-                    Polityka prywatności
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm hover:underline">
-                    Kontakt
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </>
   )
 }
