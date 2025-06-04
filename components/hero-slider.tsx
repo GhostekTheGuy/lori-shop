@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { HeroSlide } from "@/actions/hero-slide-actions"
 import Image from "next/image"
+import Link from "next/link" // Import Link from next/link
 
 interface HeroSliderProps {
   slides: HeroSlide[]
@@ -59,7 +60,13 @@ export default function HeroSlider({ slides }: HeroSliderProps) {
               <div className="text-center text-white px-4 max-w-3xl">
                 <h1 className="text-4xl md:text-6xl font-bold mb-4">{slide.title}</h1>
                 {slide.subtitle && <p className="text-lg md:text-xl mb-6">{slide.subtitle}</p>}
-                <Button className="bg-white text-black hover:bg-gray-200">Shop Now</Button>
+                <Button className="bg-white text-black hover:bg-gray-200" asChild>
+                  {slide.collection_slug ? (
+                    <Link href={`/kolekcje/${slide.collection_slug}`}>Shop Now</Link>
+                  ) : (
+                    <Link href="/sklep">Shop Now</Link>
+                  )}
+                </Button>
               </div>
             </div>
           </div>

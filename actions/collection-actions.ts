@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { getSupabase } from "@/lib/supabase"
+import { getSupabase, getSupabaseAdmin } from "@/lib/supabase" // Ensure getSupabaseAdmin is imported
 import { v4 as uuidv4 } from "uuid"
 
 // Type definitions
@@ -12,6 +12,8 @@ export type Collection = {
   description: string | null
   hero_image: string | null
   created_at: string
+  image_url: string | null // Added back for consistency with other collection actions
+  active: boolean // Added back for consistency with other collection actions
 }
 
 export type CollectionFormData = {
@@ -52,7 +54,7 @@ export async function getCollections() {
   return data as Collection[]
 }
 
-// Get published collections
+// Get published collections (Restored)
 export async function getPublishedCollections() {
   const supabase = getSupabase()
   if (!supabase) {
@@ -60,7 +62,11 @@ export async function getPublishedCollections() {
     return []
   }
 
-  const { data, error } = await supabase.from("collections").select("*").order("created_at", { ascending: false })
+  const { data, error } = await supabase
+    .from("collections")
+    .select("*")
+    .eq("active", true)
+    .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching published collections:", error)
@@ -70,7 +76,7 @@ export async function getPublishedCollections() {
   return data as Collection[]
 }
 
-// Get featured collections
+// Get featured collections (Restored)
 export async function getFeaturedCollections() {
   const supabase = getSupabase()
   if (!supabase) {
@@ -81,6 +87,7 @@ export async function getFeaturedCollections() {
   const { data, error } = await supabase
     .from("collections")
     .select("*")
+    .eq("active", true) // Assuming featured collections should also be active
     .order("created_at", { ascending: false })
     .limit(3) // Just get the first few collections
 
@@ -110,7 +117,7 @@ export async function getCollectionBySlug(slug: string) {
   return data as Collection
 }
 
-// Get collection with products
+// Get collection with products (Restored)
 export async function getCollectionWithProducts(slug: string) {
   const supabase = getSupabase()
   if (!supabase) {
@@ -164,7 +171,7 @@ export async function getCollectionWithProducts(slug: string) {
   } as CollectionWithProducts
 }
 
-// Get featured products from a collection (limited)
+// Get featured products from a collection (limited) (Restored)
 export async function getFeaturedCollectionProducts(collectionId: string, limit = 2) {
   const supabase = getSupabase()
   if (!supabase) {
@@ -211,9 +218,12 @@ export async function getFeaturedCollectionProducts(collectionId: string, limit 
 
 // Create a new collection
 export async function createCollection(formData: CollectionFormData) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin() // Changed to getSupabaseAdmin()
   if (!supabase) {
-    return { success: false, error: "Supabase client not initialized" }
+    return {
+      success: false,
+      error: "Supabase client not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.",
+    }
   }
 
   // Generate a unique ID if not provided
@@ -242,7 +252,7 @@ export async function createCollection(formData: CollectionFormData) {
 
 // Update an existing collection
 export async function updateCollection(formData: CollectionFormData) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin() // Changed to getSupabaseAdmin()
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" }
   }
@@ -277,7 +287,7 @@ export async function updateCollection(formData: CollectionFormData) {
 
 // Delete a collection
 export async function deleteCollection(id: string) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin() // Changed to getSupabaseAdmin()
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" }
   }
@@ -297,9 +307,9 @@ export async function deleteCollection(id: string) {
   return { success: true }
 }
 
-// Add product to collection
+// Add product to collection (Restored)
 export async function addProductToCollection(collectionId: string, productId: string) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin() // Changed to getSupabaseAdmin()
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" }
   }
@@ -347,9 +357,9 @@ export async function addProductToCollection(collectionId: string, productId: st
   return { success: true }
 }
 
-// Remove product from collection
+// Remove product from collection (Restored)
 export async function removeProductFromCollection(collectionId: string, productId: string) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin() // Changed to getSupabaseAdmin()
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" }
   }
@@ -379,9 +389,9 @@ export async function removeProductFromCollection(collectionId: string, productI
   return { success: true }
 }
 
-// Restore this function with a simplified implementation that doesn't rely on display_order
+// Restore this function with a simplified implementation that doesn't rely on display_order (Restored)
 export async function updateProductDisplayOrder(collectionId: string, productId: string, displayOrder: number) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin() // Changed to getSupabaseAdmin()
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" }
   }
@@ -403,6 +413,7 @@ export async function updateProductDisplayOrder(collectionId: string, productId:
   return { success: true }
 }
 
+// Get featured products (Restored)
 export async function getFeaturedProducts() {
   const supabase = getSupabase()
   if (!supabase) {

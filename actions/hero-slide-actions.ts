@@ -12,6 +12,8 @@ export type HeroSlide = {
   display_order: number
   active: boolean
   created_at?: string
+  collection_id: string | null
+  collection_slug?: string | null
 }
 
 export async function getHeroSlides(): Promise<HeroSlide[]> {
@@ -21,14 +23,22 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
     return []
   }
 
-  const { data, error } = await supabase.from("hero_slides").select("*").order("display_order", { ascending: true })
+  const { data, error } = await supabase
+    .from("hero_slides")
+    .select("*, collections(slug)")
+    .order("display_order", { ascending: true })
 
   if (error) {
     console.error("Error fetching hero slides:", error)
     return []
   }
 
-  return data as HeroSlide[]
+  const mappedData = data.map((slide: any) => ({
+    ...slide,
+    collection_slug: slide.collections?.slug || null,
+  }))
+
+  return mappedData as HeroSlide[]
 }
 
 export async function getActiveHeroSlides(): Promise<HeroSlide[]> {
@@ -40,7 +50,7 @@ export async function getActiveHeroSlides(): Promise<HeroSlide[]> {
 
   const { data, error } = await supabase
     .from("hero_slides")
-    .select("*")
+    .select("*, collections(slug)")
     .eq("active", true)
     .order("display_order", { ascending: true })
 
@@ -49,7 +59,12 @@ export async function getActiveHeroSlides(): Promise<HeroSlide[]> {
     return []
   }
 
-  return data as HeroSlide[]
+  const mappedData = data.map((slide: any) => ({
+    ...slide,
+    collection_slug: slide.collections?.slug || null,
+  }))
+
+  return mappedData as HeroSlide[]
 }
 
 export async function getHeroSlideById(id: string): Promise<HeroSlide | null> {
@@ -59,14 +74,19 @@ export async function getHeroSlideById(id: string): Promise<HeroSlide | null> {
     return null
   }
 
-  const { data, error } = await supabase.from("hero_slides").select("*").eq("id", id).single()
+  const { data, error } = await supabase.from("hero_slides").select("*, collections(slug)").eq("id", id).single()
 
   if (error) {
     console.error("Error fetching hero slide:", error)
     return null
   }
 
-  return data as HeroSlide
+  const mappedData = {
+    ...data,
+    collection_slug: data.collections?.slug || null,
+  }
+
+  return mappedData as HeroSlide
 }
 
 export async function createHeroSlide(formData: FormData): Promise<{ success: boolean; message: string }> {
@@ -79,7 +99,9 @@ export async function createHeroSlide(formData: FormData): Promise<{ success: bo
   const subtitle = formData.get("subtitle") as string
   const image = formData.get("image") as string
   const displayOrder = Number.parseInt(formData.get("display_order") as string) || 0
-  const active = formData.get("active") === "true"
+  // Correctly check if the switch is "on" (checked)
+  const active = formData.get("active") === "on"
+  const collectionId = (formData.get("collection_id") as string) || null
 
   if (!title || !image) {
     return { success: false, message: "Title and image are required" }
@@ -92,6 +114,7 @@ export async function createHeroSlide(formData: FormData): Promise<{ success: bo
     image,
     display_order: displayOrder,
     active,
+    collection_id: collectionId,
   })
 
   if (error) {
@@ -115,7 +138,9 @@ export async function updateHeroSlide(id: string, formData: FormData): Promise<{
   const subtitle = formData.get("subtitle") as string
   const image = formData.get("image") as string
   const displayOrder = Number.parseInt(formData.get("display_order") as string) || 0
-  const active = formData.get("active") === "true"
+  // Correctly check if the switch is "on" (checked)
+  const active = formData.get("active") === "on"
+  const collectionId = (formData.get("collection_id") as string) || null
 
   if (!title || !image) {
     return { success: false, message: "Title and image are required" }
@@ -129,6 +154,7 @@ export async function updateHeroSlide(id: string, formData: FormData): Promise<{
       image,
       display_order: displayOrder,
       active,
+      collection_id: collectionId,
     })
     .eq("id", id)
 

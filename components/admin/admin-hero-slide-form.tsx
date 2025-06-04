@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react" // Import useEffect
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast"
 import { createHeroSlide, updateHeroSlide, type HeroSlide } from "@/actions/hero-slide-actions"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select" // Import Select components
+import { getCollections, type Collection } from "@/actions/collection-actions" // Import getCollections and Collection type
 
 interface AdminHeroSlideFormProps {
   slide?: HeroSlide
@@ -23,12 +25,23 @@ export function AdminHeroSlideForm({ slide, isEditing = false }: AdminHeroSlideF
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(slide?.image || null)
+  const [collections, setCollections] = useState<Collection[]>([]) // State for collections
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(slide?.collection_id || null) // State for selected collection
+
+  useEffect(() => {
+    const fetchCollections = async () => {
+      const fetchedCollections = await getCollections()
+      setCollections(fetchedCollections)
+    }
+    fetchCollections()
+  }, [])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsSubmitting(true)
 
     const formData = new FormData(event.currentTarget)
+    formData.append("collection_id", selectedCollectionId || "") // Append selected collection ID
 
     try {
       let result
@@ -102,6 +115,28 @@ export function AdminHeroSlideForm({ slide, isEditing = false }: AdminHeroSlideF
             </div>
           </div>
         )}
+
+        <div className="space-y-2">
+          <Label htmlFor="collection_id">Associated Collection</Label>
+          <Select
+            name="collection_id"
+            value={selectedCollectionId || ""}
+            onValueChange={(value) => setSelectedCollectionId(value === "" ? null : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a collection (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {collections.map((collection) => (
+                <SelectItem key={collection.id} value={collection.id}>
+                  {collection.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-sm text-gray-500">Link this slide to a specific product collection.</p>
+        </div>
 
         <div className="flex items-center space-x-2">
           <Switch id="active" name="active" defaultChecked={slide?.active !== false} />
